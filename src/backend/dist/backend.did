@@ -1,0 +1,223 @@
+type UserId = principal;
+type UpiPaymentRecord = 
+ record {
+   amount: nat;
+   orderId: OrderId;
+   status: text;
+   timestamp: Timestamp;
+   upiTransactionId: text;
+ };
+type Timestamp = int;
+type StripeLineItem = 
+ record {
+   name: text;
+   priceRupees: float64;
+   quantity: nat;
+ };
+type ReviewId = nat;
+type Review = 
+ record {
+   id: ReviewId;
+   productId: ProductId;
+   rating: nat;
+   reviewerName: text;
+   "text": text;
+   timestamp: Timestamp;
+ };
+type ProductUpdate = 
+ record {
+   inStock: opt bool;
+   price: opt float64;
+ };
+type ProductId = text;
+type PlaceOrderRequest = 
+ record {
+   address: Address;
+   items: vec OrderItem;
+   paymentMethod: PaymentMethod;
+   stripeTransactionId: opt text;
+ };
+type PaymentStatus = 
+ variant {
+   err: text;
+   expired;
+   paid;
+   unpaid;
+ };
+type PaymentMethod = 
+ variant {
+   cashfree;
+   cod;
+   online;
+   paypal;
+   razorpay;
+   upi;
+ };
+type OrderStatus = 
+ variant {
+   cancelled;
+   confirmed;
+   delivered;
+   pending;
+   refunded;
+   shipped;
+ };
+type OrderItem = 
+ record {
+   name: text;
+   price: float64;
+   productId: ProductId;
+   quantity: nat;
+ };
+type OrderId = nat;
+type Order = 
+ record {
+   address: Address;
+   createdAt: Timestamp;
+   id: OrderId;
+   isDamaged: bool;
+   items: vec OrderItem;
+   paymentMethod: PaymentMethod;
+   status: OrderStatus;
+   stripeTransactionId: opt text;
+   total: float64;
+   userId: UserId;
+ };
+type LoginMethod = 
+ variant {
+   admin;
+   internetIdentity;
+ };
+type LoginEvent = 
+ record {
+   displayName: opt text;
+   method: LoginMethod;
+   "principal": UserId;
+   timestamp: Timestamp;
+ };
+type InventoryItem = 
+ record {
+   inStock: bool;
+   productId: ProductId;
+   updatedAt: Timestamp;
+ };
+type DashboardStats = 
+ record {
+   cancelledOrders: nat;
+   damagedOrders: nat;
+   deliveredOrders: nat;
+   inStockCount: nat;
+   refundedOrders: nat;
+   totalOrders: nat;
+   totalProducts: nat;
+   uniqueCustomers: nat;
+ };
+type CreateCheckoutSessionResult = 
+ variant {
+   err: text;
+   ok: text;
+ };
+type CreateCheckoutSessionRequest = 
+ record {
+   cancelUrl: text;
+   lineItems: vec StripeLineItem;
+   orderId: OrderId;
+   successUrl: text;
+ };
+type ContactSubmission = 
+ record {
+   email: text;
+   id: ContactId;
+   isRead: bool;
+   message: text;
+   name: text;
+   submittedAt: Timestamp;
+ };
+type ContactId = nat;
+type AltPaymentRecord = 
+ record {
+   amount: float64;
+   orderId: OrderId;
+   paymentMethod: text;
+   status: text;
+   timestamp: Timestamp;
+   transactionId: text;
+ };
+type Address = 
+ record {
+   city: text;
+   houseNumber: text;
+   pin: text;
+   state: text;
+ };
+service : {
+  adminDeleteProduct: (password: text, productId: ProductId) ->
+   (variant {
+      err: text;
+      ok;
+    });
+  adminFlagOrderDamaged: (password: text, orderId: OrderId, damaged: 
+   bool) -> (variant {
+               err: text;
+               ok;
+             });
+  adminGetAllOrders: (password: text) -> (vec Order);
+  adminGetAllReviews: (password: text) -> (vec Review);
+  adminGetAltPayments: (password: text) -> (vec AltPaymentRecord);
+  adminGetContactSubmissions: (password: text) -> (vec ContactSubmission);
+  adminGetDamagedOrders: (password: text) -> (vec Order);
+  adminGetDashboardStats: (password: text) -> (opt DashboardStats);
+  adminGetInventory: (password: text) -> (vec InventoryItem);
+  adminGetLoginHistory: (password: text) -> (vec LoginEvent);
+  adminGetOutOfStockProducts: (password: text) -> (vec InventoryItem);
+  adminGetUpiPayments: (password: text) -> (vec UpiPaymentRecord);
+  adminMarkContactRead: (password: text, id: ContactId) ->
+   (variant {
+      err: text;
+      ok;
+    });
+  adminUpdateOrderPaymentStatus: (password: text, orderId: OrderId,
+   sessionId: text) -> (bool);
+  adminUpdateOrderStatus: (password: text, orderId: OrderId, newStatus:
+   OrderStatus) -> (bool);
+  adminUpdateProduct: (password: text, productId: ProductId, updates:
+   ProductUpdate) -> (variant {
+                        err: text;
+                        ok;
+                      });
+  adminUpdateStock: (password: text, productId: ProductId, inStock: bool) ->
+   (variant {
+      err: text;
+      ok;
+    });
+  adminVerifyPassword: (password: text) -> (bool);
+  cancelOrder: (orderId: OrderId) -> (bool);
+  createStripeCheckoutSession: (request: CreateCheckoutSessionRequest) ->
+   (CreateCheckoutSessionResult);
+  getAverageRating: (productId: text) -> (opt float64) query;
+  getReviews: (productId: text) -> (vec Review) query;
+  getUserOrders: () -> (vec Order) query;
+  placeOrder: (request: PlaceOrderRequest) -> (Order);
+  recordAltPayment: (orderId: OrderId, paymentMethod: text, transactionId:
+   text, amount: float64, password: text) -> (variant {
+                                                err: text;
+                                                ok: text;
+                                              });
+  recordLogin: (method: LoginMethod, displayName: opt text) -> ();
+  recordUpiPayment: (orderId: OrderId, upiTransactionId: text, amount:
+   nat) -> (variant {
+              err: text;
+              ok: text;
+            });
+  submitContactForm: (name: text, email: text, message: text) ->
+   (variant {
+      err: text;
+      ok: ContactId;
+    });
+  submitReview: (productId: text, reviewerName: text, rating: nat, "text":
+   text) -> (variant {
+               err: text;
+               ok: ReviewId;
+             });
+  verifyStripePayment: (sessionId: text) -> (PaymentStatus);
+}

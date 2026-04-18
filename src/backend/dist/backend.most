@@ -1,0 +1,150 @@
+// Version: 1.0.0
+type Address__175912953 =
+  {city : Text; houseNumber : Text; pin : Text; state : Text};
+type AltPaymentRecord__164101987 =
+  {
+    amount : Float;
+    orderId : OrderId__197865225;
+    paymentMethod : Text;
+    status : Text;
+    timestamp : Timestamp__301639476;
+    transactionId : Text
+  };
+type ContactId__790205394 = Nat;
+type ContactSubmission__266142382 =
+  {
+    email : Text;
+    id : ContactId__790205394;
+    isRead : Bool;
+    message : Text;
+    name : Text;
+    submittedAt : Timestamp__301639476
+  };
+type Data__791452850<K, V> =
+  {var count : Nat__490723111; kvs : [var ?(K, V)]};
+type Internal__8484328<K, V> =
+  {children : [var ?Node__46230540<K, V>]; data : Data__791452850<K, V>};
+type InventoryItem__684123709 =
+  {
+    inStock : Bool;
+    productId : ProductId__160010635;
+    updatedAt : Timestamp__301639476
+  };
+type Leaf__809889148<K, V> = {data : Data__791452850<K, V>};
+type List__415060402<T> = List__790383201<T>;
+type List__790383201<T> =
+  {
+    var blockIndex : Nat__490723111;
+    var blocks : [var [var ?T]];
+    var elementIndex : Nat__490723111
+  };
+type LoginEvent__993062766 =
+  {
+    displayName : ?Text;
+    method : LoginMethod__59551469;
+    principal : UserId__158757552;
+    timestamp : Timestamp__301639476
+  };
+type LoginMethod__59551469 = {#admin; #internetIdentity};
+type Nat__490723111 = Nat__920180692;
+type Nat__920180692 = Nat;
+type Node__46230540<K, V> =
+  {#internal : Internal__8484328<K, V>; #leaf : Leaf__809889148<K, V>};
+type OrderId__197865225 = Nat;
+type OrderItem__241319351 =
+  {
+    name : Text;
+    price : Float;
+    productId : ProductId__160010635;
+    quantity : Nat
+  };
+type OrderStatus__272730104 =
+  {#cancelled; #confirmed; #delivered; #pending; #refunded; #shipped};
+type Order__141779993 =
+  {
+    address : Address__175912953;
+    createdAt : Timestamp__301639476;
+    id : OrderId__197865225;
+    isDamaged : Bool;
+    items : [OrderItem__241319351];
+    paymentMethod : PaymentMethod__972042942;
+    status : OrderStatus__272730104;
+    stripeTransactionId : ?Text;
+    total : Float;
+    userId : UserId__158757552
+  };
+type PaymentMethod__972042942 =
+  {#cashfree; #cod; #online; #paypal; #razorpay; #upi};
+type ProductId__160010635 = Text;
+type ProductId__707132090 = ProductId__160010635;
+type ReviewId__286800634 = Nat;
+type Review__513345496 =
+  {
+    id : ReviewId__286800634;
+    productId : ProductId__707132090;
+    rating : Nat;
+    reviewerName : Text;
+    text : Text;
+    timestamp : Timestamp__301639476
+  };
+type Timestamp__301639476 = Int;
+type UpiPaymentRecord__1071096575 =
+  {
+    amount : Nat;
+    orderId : OrderId__197865225;
+    status : Text;
+    timestamp : Timestamp__301639476;
+    upiTransactionId : Text
+  };
+type UserId__158757552 = Principal;
+actor {
+  stable adminPasswordHash : Text;
+  stable altPayments :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?AltPaymentRecord__164101987]];
+      var elementIndex : Nat__490723111
+    };
+  stable contacts :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?ContactSubmission__266142382]];
+      var elementIndex : Nat__490723111
+    };
+  stable inventory :
+    {
+      var root :
+        Node__46230540<ProductId__160010635, InventoryItem__684123709>;
+      var size : Nat__490723111
+    };
+  stable loginEvents :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?LoginEvent__993062766]];
+      var elementIndex : Nat__490723111
+    };
+  stable nextContactId : {var value : Nat};
+  stable nextOrderId : {var value : Nat};
+  stable nextReviewId : {var value : Nat};
+  stable orders :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?Order__141779993]];
+      var elementIndex : Nat__490723111
+    };
+  stable reviewStore :
+    {
+      var root :
+        Node__46230540<ProductId__707132090,
+                        List__415060402<Review__513345496>>;
+      var size : Nat__490723111
+    };
+  stable var seedReviewsDone : Bool;
+  stable stripeSecretKey : Text;
+  stable upiPayments :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?UpiPaymentRecord__1071096575]];
+      var elementIndex : Nat__490723111
+    }
+};

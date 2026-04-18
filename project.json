@@ -1,0 +1,28 @@
+{
+  "overview": "V-7 Shop is a full-featured mobile-first e-commerce store with a large product catalog, advanced admin dashboard, multiple payment options including Stripe and QR-based UPI/Paytm, product reviews and ratings, and order management.",
+  "features": [
+    "Full product catalog with 4000+ items across 8+ brands",
+    "Admin dashboard with inventory, orders, reviews, damaged items, out-of-stock tracking",
+    "User reviews and star ratings on every product",
+    "Stripe online payment integration",
+    "QR code scanner for UPI/Paytm payments",
+    "Cash on Delivery and multiple payment methods",
+    "Order management with cancel, damage reporting",
+    "Internet Identity login with admin panel",
+    "Location auto-fill at checkout",
+    "Mobile-responsive design"
+  ],
+  "category": "e-commerce",
+  "tags": [
+    "ecommerce",
+    "shop",
+    "payments",
+    "stripe",
+    "upi",
+    "admin",
+    "reviews",
+    "ratings",
+    "mobile"
+  ],
+  "last_updated": "2026-04-18T09:42:09.243Z"
+}
