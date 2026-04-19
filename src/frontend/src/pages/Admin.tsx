@@ -17,11 +17,17 @@ import {
   useAdminLoginHistory,
   useAdminMarkContactRead,
   useAdminOrders,
+  useAdminRazorpayPayments,
   useAdminUpdateStatus,
   useAdminUpdateStock,
   useAdminVerifyPassword,
 } from "@/hooks/useBackend";
-import type { AdminReview, AltPaymentRecord, UpiPaymentRecord } from "@/types";
+import type {
+  AdminReview,
+  AltPaymentRecord,
+  RazorpayPaymentRecord,
+  UpiPaymentRecord,
+} from "@/types";
 import {
   AlertTriangle,
   CheckCircle,
@@ -55,6 +61,7 @@ type Section =
   | "inventory"
   | "users"
   | "orders"
+  | "razorpay_payments"
   | "reviews"
   | "contacts"
   | "damaged"
@@ -71,6 +78,7 @@ const NAV_ITEMS: {
   { id: "inventory", label: "Inventory", Icon: Package },
   { id: "users", label: "User Logins", Icon: Users },
   { id: "orders", label: "Orders", Icon: ClipboardList },
+  { id: "razorpay_payments", label: "Razorpay Payments", Icon: CreditCard },
   { id: "reviews", label: "Reviews", Icon: Star },
   { id: "contacts", label: "Contact Us", Icon: Mail },
   { id: "damaged", label: "Damaged Orders", Icon: AlertTriangle },
@@ -285,10 +293,16 @@ function OverviewSection({ password }: { password: string }) {
   const { data: stats, isLoading } = useAdminDashboardStats(password);
   const { data: orders = [] } = useAdminOrders(password);
   const { data: loginEvents = [] } = useAdminLoginHistory(password);
+  const { data: rzpPayments = [] } = useAdminRazorpayPayments(password);
 
   const recentOrders = [...orders]
     .sort((a, b) => Number(b.createdAt - a.createdAt))
     .slice(0, 5);
+
+  const rzpRevenue = rzpPayments
+    .filter((p) => p.status === "success")
+    .reduce((sum, p) => sum + p.amount / 100, 0); // paise → rupees
+  const rzpTxnCount = rzpPayments.length;
 
   return (
     <div>
@@ -366,6 +380,25 @@ function OverviewSection({ password }: { password: string }) {
               <p className="text-xl sm:text-2xl font-display font-extrabold text-foreground flex items-center gap-1.5">
                 <AlertTriangle className="h-4 w-4 text-orange-500" />
                 {stats?.damagedOrders ?? 0}
+              </p>
+            </div>
+          </div>
+          {/* Row 3: Razorpay stats */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-6">
+            <div className="rounded-xl p-3 sm:p-4 border bg-card border-indigo-200/60">
+              <p className="text-xs font-medium mb-1 text-indigo-600 flex items-center gap-1">
+                <CreditCard className="h-3 w-3" /> Razorpay Revenue
+              </p>
+              <p className="text-xl sm:text-2xl font-display font-extrabold text-foreground">
+                ₹{rzpRevenue.toLocaleString("en-IN")}
+              </p>
+            </div>
+            <div className="rounded-xl p-3 sm:p-4 border bg-card border-indigo-200/60">
+              <p className="text-xs font-medium mb-1 text-indigo-600 flex items-center gap-1">
+                <CreditCard className="h-3 w-3" /> Razorpay Transactions
+              </p>
+              <p className="text-xl sm:text-2xl font-display font-extrabold text-foreground">
+                {rzpTxnCount}
               </p>
             </div>
           </div>
@@ -902,12 +935,12 @@ function OrdersSection({ password }: { password: string }) {
         <UpiPaymentsTable payments={upiPayments} />
       </div>
 
-      {/* Alt Payments Sub-section (PayPal / Razorpay / Cashfree) */}
+      {/* Alt Payments Sub-section (PayPal / Cashfree) */}
       <div className="mt-8">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-3 h-3 rounded-full bg-blue-500" />
           <h3 className="text-sm font-display font-bold text-foreground">
-            Alt Payments (PayPal / Razorpay / Cashfree)
+            Alt Payments (PayPal / Cashfree)
           </h3>
           <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs border ml-1">
             {altPayments.length} record{altPayments.length !== 1 ? "s" : ""}
@@ -1089,6 +1122,250 @@ function AltPaymentsTable({ payments }: { payments: AltPaymentRecord[] }) {
         })}
       </tbody>
     </TableWrap>
+  );
+}
+
+// ─── Section: Razorpay Payments ───────────────────────────────────────────────
+
+function RazorpayPaymentsSection({ password }: { password: string }) {
+  const { data: payments = [], isLoading } = useAdminRazorpayPayments(password);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+
+  const sorted = [...payments].sort((a, b) => b.timestamp - a.timestamp);
+
+  const successPayments = sorted.filter((p) => p.status === "success");
+  const failedPayments = sorted.filter((p) => p.status === "failed");
+  const totalRevenue = successPayments.reduce(
+    (sum, p) => sum + p.amount / 100,
+    0,
+  );
+
+  return (
+    <div>
+      <SectionHeader
+        title="Razorpay Payments"
+        subtitle="All Razorpay Standard Checkout transactions — success and failed"
+      />
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <StatCard
+          label="Total Transactions"
+          value={sorted.length}
+          accent
+          icon={CreditCard}
+        />
+        <StatCard
+          label="Razorpay Revenue"
+          value={`₹${totalRevenue.toLocaleString("en-IN")}`}
+          icon={TrendingUp}
+        />
+        <StatCard label="Successful" value={successPayments.length} />
+        <StatCard label="Failed" value={failedPayments.length} />
+      </div>
+
+      {isLoading ? (
+        <LoadingSkeleton rows={5} />
+      ) : !sorted.length ? (
+        <div
+          className="rounded-xl border border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground"
+          data-ocid="razorpay-payments.empty_state"
+        >
+          <CreditCard className="h-8 w-8 mx-auto mb-3 text-muted-foreground/30" />
+          <p className="font-medium">No Razorpay transactions yet</p>
+          <p className="text-xs mt-1 text-muted-foreground/60">
+            Transactions will appear here after users pay via Razorpay checkout
+          </p>
+        </div>
+      ) : (
+        <TableWrap>
+          <thead>
+            <tr>
+              <Th sticky>Date</Th>
+              <Th>Payment ID</Th>
+              <Th>Amount</Th>
+              <Th>Status</Th>
+              <Th>Method</Th>
+              <Th>User</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((p, idx) => {
+              const ts = new Date(
+                Number(p.timestamp) / 1_000_000,
+              ).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              const isSuccess = p.status === "success";
+              const isExpanded = expandedIdx === idx;
+              const rowKey =
+                p.razorpayPaymentId || `rzp-${p.orderId}-${p.timestamp}`;
+
+              return (
+                <React.Fragment key={rowKey}>
+                  <tr
+                    className="hover:bg-muted/10 transition-colors cursor-pointer"
+                    onClick={() => setExpandedIdx(isExpanded ? null : idx)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter")
+                        setExpandedIdx(isExpanded ? null : idx);
+                    }}
+                    data-ocid={`razorpay-payments.item.${idx + 1}`}
+                  >
+                    <Td sticky>
+                      <div className="flex items-center gap-1">
+                        {isExpanded ? (
+                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {ts}
+                        </span>
+                      </div>
+                    </Td>
+                    <Td>
+                      {p.razorpayPaymentId ? (
+                        <div className="flex items-center gap-1 min-w-0">
+                          <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs border font-mono truncate max-w-[120px]">
+                            {p.razorpayPaymentId.slice(0, 14)}…
+                          </Badge>
+                          <CopyButton text={p.razorpayPaymentId} />
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </Td>
+                    <Td className="font-semibold whitespace-nowrap">
+                      ₹{(p.amount / 100).toLocaleString("en-IN")}
+                    </Td>
+                    <Td>
+                      <Badge
+                        className={`text-xs border whitespace-nowrap ${
+                          isSuccess
+                            ? "bg-green-50 text-green-700 border-green-200"
+                            : "bg-red-50 text-red-700 border-red-200"
+                        }`}
+                      >
+                        {isSuccess ? "✓ Success" : "✗ Failed"}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs border capitalize whitespace-nowrap">
+                        {p.paymentMethod}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="font-mono text-xs text-muted-foreground truncate max-w-[80px]">
+                          {p.userPrincipal
+                            ? `${p.userPrincipal.slice(0, 10)}…`
+                            : "—"}
+                        </span>
+                        {p.userPrincipal && (
+                          <CopyButton text={p.userPrincipal} />
+                        )}
+                      </div>
+                    </Td>
+                  </tr>
+
+                  {/* Expanded detail row */}
+                  {isExpanded && (
+                    <tr key={`${rowKey}-expanded`}>
+                      <td
+                        colSpan={6}
+                        className="bg-muted/20 border-b border-border/50 px-4 sm:px-6 py-3"
+                      >
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          <div className="space-y-1.5 text-xs">
+                            <p className="font-semibold text-muted-foreground uppercase tracking-wide">
+                              Transaction Details
+                            </p>
+                            <div className="space-y-1">
+                              <div className="flex gap-2">
+                                <span className="text-muted-foreground w-24 shrink-0">
+                                  Payment ID
+                                </span>
+                                <span className="font-mono text-foreground break-all">
+                                  {p.razorpayPaymentId || "—"}
+                                </span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="text-muted-foreground w-24 shrink-0">
+                                  Order ID
+                                </span>
+                                <span className="font-mono text-foreground">
+                                  {p.razorpayOrderId || "—"}
+                                </span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="text-muted-foreground w-24 shrink-0">
+                                  Shop Order
+                                </span>
+                                <span className="font-mono text-foreground">
+                                  #{p.orderId}
+                                </span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="text-muted-foreground w-24 shrink-0">
+                                  Email
+                                </span>
+                                <span className="font-mono text-foreground break-all">
+                                  {p.email || "—"}
+                                </span>
+                              </div>
+                              {!isSuccess && p.errorMessage && (
+                                <div className="flex gap-2">
+                                  <span className="text-muted-foreground w-24 shrink-0">
+                                    Error
+                                  </span>
+                                  <span className="text-red-600 break-words">
+                                    {p.errorMessage}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-1.5 text-xs">
+                            <p className="font-semibold text-muted-foreground uppercase tracking-wide">
+                              Items ({p.items.length})
+                            </p>
+                            <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                              {p.items.map((item, iidx) => (
+                                <div
+                                  key={`${item.productId}-${p.razorpayPaymentId || idx}-${iidx}`}
+                                  className="flex items-center gap-2 bg-card rounded px-2 py-1.5 border border-border/40"
+                                >
+                                  <div className="w-6 h-6 rounded bg-muted/60 flex items-center justify-center shrink-0">
+                                    <Package className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-foreground truncate">
+                                      {item.name}
+                                    </p>
+                                    <p className="text-muted-foreground">
+                                      Qty: {item.quantity.toString()} · ₹
+                                      {item.price.toLocaleString("en-IN")}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </TableWrap>
+      )}
+    </div>
   );
 }
 
@@ -2071,6 +2348,8 @@ export function AdminPage() {
         return <UsersSection password={password} />;
       case "orders":
         return <OrdersSection password={password} />;
+      case "razorpay_payments":
+        return <RazorpayPaymentsSection password={password} />;
       case "reviews":
         return <ReviewsSection password={password} />;
       case "contacts":

@@ -83,6 +83,8 @@ export const DashboardStats = IDL.Record({
   'cancelledOrders' : IDL.Nat,
   'totalOrders' : IDL.Nat,
   'damagedOrders' : IDL.Nat,
+  'totalRazorpayTransactions' : IDL.Nat,
+  'totalRazorpayRevenue' : IDL.Nat,
   'refundedOrders' : IDL.Nat,
   'uniqueCustomers' : IDL.Nat,
   'inStockCount' : IDL.Nat,
@@ -102,6 +104,25 @@ export const LoginEvent = IDL.Record({
   'principal' : UserId,
   'displayName' : IDL.Opt(IDL.Text),
   'timestamp' : Timestamp,
+});
+export const RazorpayPaymentRecord = IDL.Record({
+  'razorpayPaymentId' : IDL.Text,
+  'status' : IDL.Text,
+  'paymentMethod' : IDL.Text,
+  'errorMessage' : IDL.Text,
+  'email' : IDL.Text,
+  'orderId' : OrderId,
+  'razorpayOrderId' : IDL.Text,
+  'userPrincipal' : IDL.Text,
+  'timestamp' : Timestamp,
+  'items' : IDL.Vec(OrderItem),
+  'amount' : IDL.Nat,
+});
+export const RazorpayStats = IDL.Record({
+  'failedCount' : IDL.Nat,
+  'successCount' : IDL.Nat,
+  'totalRevenue' : IDL.Nat,
+  'totalTransactions' : IDL.Nat,
 });
 export const UpiPaymentRecord = IDL.Record({
   'status' : IDL.Text,
@@ -174,6 +195,12 @@ export const idlService = IDL.Service({
       [IDL.Vec(InventoryItem)],
       [],
     ),
+  'adminGetRazorpayPayments' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(RazorpayPaymentRecord)],
+      [],
+    ),
+  'adminGetRazorpayStats' : IDL.Func([IDL.Text], [IDL.Opt(RazorpayStats)], []),
   'adminGetUpiPayments' : IDL.Func([IDL.Text], [IDL.Vec(UpiPaymentRecord)], []),
   'adminMarkContactRead' : IDL.Func(
       [IDL.Text, ContactId],
@@ -208,6 +235,7 @@ export const idlService = IDL.Service({
       [],
     ),
   'getAverageRating' : IDL.Func([IDL.Text], [IDL.Opt(IDL.Float64)], ['query']),
+  'getMyRazorpayPayments' : IDL.Func([], [IDL.Vec(RazorpayPaymentRecord)], []),
   'getReviews' : IDL.Func([IDL.Text], [IDL.Vec(Review)], ['query']),
   'getUserOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
   'placeOrder' : IDL.Func([PlaceOrderRequest], [Order], []),
@@ -217,6 +245,21 @@ export const idlService = IDL.Service({
       [],
     ),
   'recordLogin' : IDL.Func([LoginMethod, IDL.Opt(IDL.Text)], [], []),
+  'recordRazorpayPayment' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        IDL.Text,
+        OrderId,
+        IDL.Vec(OrderItem),
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+      ],
+      [IDL.Variant({ 'ok' : RazorpayPaymentRecord, 'err' : IDL.Text })],
+      [],
+    ),
   'recordUpiPayment' : IDL.Func(
       [OrderId, IDL.Text, IDL.Nat],
       [IDL.Variant({ 'ok' : IDL.Text, 'err' : IDL.Text })],
@@ -313,6 +356,8 @@ export const idlFactory = ({ IDL }) => {
     'cancelledOrders' : IDL.Nat,
     'totalOrders' : IDL.Nat,
     'damagedOrders' : IDL.Nat,
+    'totalRazorpayTransactions' : IDL.Nat,
+    'totalRazorpayRevenue' : IDL.Nat,
     'refundedOrders' : IDL.Nat,
     'uniqueCustomers' : IDL.Nat,
     'inStockCount' : IDL.Nat,
@@ -332,6 +377,25 @@ export const idlFactory = ({ IDL }) => {
     'principal' : UserId,
     'displayName' : IDL.Opt(IDL.Text),
     'timestamp' : Timestamp,
+  });
+  const RazorpayPaymentRecord = IDL.Record({
+    'razorpayPaymentId' : IDL.Text,
+    'status' : IDL.Text,
+    'paymentMethod' : IDL.Text,
+    'errorMessage' : IDL.Text,
+    'email' : IDL.Text,
+    'orderId' : OrderId,
+    'razorpayOrderId' : IDL.Text,
+    'userPrincipal' : IDL.Text,
+    'timestamp' : Timestamp,
+    'items' : IDL.Vec(OrderItem),
+    'amount' : IDL.Nat,
+  });
+  const RazorpayStats = IDL.Record({
+    'failedCount' : IDL.Nat,
+    'successCount' : IDL.Nat,
+    'totalRevenue' : IDL.Nat,
+    'totalTransactions' : IDL.Nat,
   });
   const UpiPaymentRecord = IDL.Record({
     'status' : IDL.Text,
@@ -408,6 +472,16 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(InventoryItem)],
         [],
       ),
+    'adminGetRazorpayPayments' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(RazorpayPaymentRecord)],
+        [],
+      ),
+    'adminGetRazorpayStats' : IDL.Func(
+        [IDL.Text],
+        [IDL.Opt(RazorpayStats)],
+        [],
+      ),
     'adminGetUpiPayments' : IDL.Func(
         [IDL.Text],
         [IDL.Vec(UpiPaymentRecord)],
@@ -450,6 +524,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(IDL.Float64)],
         ['query'],
       ),
+    'getMyRazorpayPayments' : IDL.Func(
+        [],
+        [IDL.Vec(RazorpayPaymentRecord)],
+        [],
+      ),
     'getReviews' : IDL.Func([IDL.Text], [IDL.Vec(Review)], ['query']),
     'getUserOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
     'placeOrder' : IDL.Func([PlaceOrderRequest], [Order], []),
@@ -459,6 +538,21 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'recordLogin' : IDL.Func([LoginMethod, IDL.Opt(IDL.Text)], [], []),
+    'recordRazorpayPayment' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          IDL.Text,
+          OrderId,
+          IDL.Vec(OrderItem),
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+        ],
+        [IDL.Variant({ 'ok' : RazorpayPaymentRecord, 'err' : IDL.Text })],
+        [],
+      ),
     'recordUpiPayment' : IDL.Func(
         [OrderId, IDL.Text, IDL.Nat],
         [IDL.Variant({ 'ok' : IDL.Text, 'err' : IDL.Text })],

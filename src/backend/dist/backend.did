@@ -24,6 +24,27 @@ type Review =
    "text": text;
    timestamp: Timestamp;
  };
+type RazorpayStats = 
+ record {
+   failedCount: nat;
+   successCount: nat;
+   totalRevenue: nat;
+   totalTransactions: nat;
+ };
+type RazorpayPaymentRecord = 
+ record {
+   amount: nat;
+   email: text;
+   errorMessage: text;
+   items: vec OrderItem;
+   orderId: OrderId;
+   paymentMethod: text;
+   razorpayOrderId: text;
+   razorpayPaymentId: text;
+   status: text;
+   timestamp: Timestamp;
+   userPrincipal: text;
+ };
 type ProductUpdate = 
  record {
    inStock: opt bool;
@@ -110,6 +131,8 @@ type DashboardStats =
    refundedOrders: nat;
    totalOrders: nat;
    totalProducts: nat;
+   totalRazorpayRevenue: nat;
+   totalRazorpayTransactions: nat;
    uniqueCustomers: nat;
  };
 type CreateCheckoutSessionResult = 
@@ -170,6 +193,8 @@ service : {
   adminGetInventory: (password: text) -> (vec InventoryItem);
   adminGetLoginHistory: (password: text) -> (vec LoginEvent);
   adminGetOutOfStockProducts: (password: text) -> (vec InventoryItem);
+  adminGetRazorpayPayments: (password: text) -> (vec RazorpayPaymentRecord);
+  adminGetRazorpayStats: (password: text) -> (opt RazorpayStats);
   adminGetUpiPayments: (password: text) -> (vec UpiPaymentRecord);
   adminMarkContactRead: (password: text, id: ContactId) ->
    (variant {
@@ -195,6 +220,7 @@ service : {
   createStripeCheckoutSession: (request: CreateCheckoutSessionRequest) ->
    (CreateCheckoutSessionResult);
   getAverageRating: (productId: text) -> (opt float64) query;
+  getMyRazorpayPayments: () -> (vec RazorpayPaymentRecord);
   getReviews: (productId: text) -> (vec Review) query;
   getUserOrders: () -> (vec Order) query;
   placeOrder: (request: PlaceOrderRequest) -> (Order);
@@ -204,6 +230,13 @@ service : {
                                                 ok: text;
                                               });
   recordLogin: (method: LoginMethod, displayName: opt text) -> ();
+  recordRazorpayPayment: (razorpayPaymentId: text, razorpayOrderId: text,
+   amount: nat, email: text, orderId: OrderId, items: vec OrderItem,
+   paymentMethod: text, status: text, errorMessage: text) ->
+   (variant {
+      err: text;
+      ok: RazorpayPaymentRecord;
+    });
   recordUpiPayment: (orderId: OrderId, upiTransactionId: text, amount:
    nat) -> (variant {
               err: text;

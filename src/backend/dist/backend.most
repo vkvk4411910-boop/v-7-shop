@@ -77,6 +77,20 @@ type PaymentMethod__972042942 =
   {#cashfree; #cod; #online; #paypal; #razorpay; #upi};
 type ProductId__160010635 = Text;
 type ProductId__707132090 = ProductId__160010635;
+type RazorpayPaymentRecord__885755151 =
+  {
+    amount : Nat;
+    email : Text;
+    errorMessage : Text;
+    items : [OrderItem__241319351];
+    orderId : OrderId__197865225;
+    paymentMethod : Text;
+    razorpayOrderId : Text;
+    razorpayPaymentId : Text;
+    status : Text;
+    timestamp : Timestamp__301639476;
+    userPrincipal : Text
+  };
 type ReviewId__286800634 = Nat;
 type Review__513345496 =
   {
@@ -130,6 +144,12 @@ actor {
     {
       var blockIndex : Nat__490723111;
       var blocks : [var [var ?Order__141779993]];
+      var elementIndex : Nat__490723111
+    };
+  stable razorpayPayments :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?RazorpayPaymentRecord__885755151]];
       var elementIndex : Nat__490723111
     };
   stable reviewStore :

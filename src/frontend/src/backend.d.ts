@@ -30,6 +30,12 @@ export interface ProductUpdate {
     inStock?: boolean;
     price?: number;
 }
+export interface RazorpayStats {
+    failedCount: bigint;
+    successCount: bigint;
+    totalRevenue: bigint;
+    totalTransactions: bigint;
+}
 export interface OrderItem {
     name: string;
     productId: ProductId;
@@ -80,17 +86,32 @@ export interface DashboardStats {
     cancelledOrders: bigint;
     totalOrders: bigint;
     damagedOrders: bigint;
+    totalRazorpayTransactions: bigint;
+    totalRazorpayRevenue: bigint;
     refundedOrders: bigint;
     uniqueCustomers: bigint;
     inStockCount: bigint;
     deliveredOrders: bigint;
 }
+export interface RazorpayPaymentRecord {
+    razorpayPaymentId: string;
+    status: string;
+    paymentMethod: string;
+    errorMessage: string;
+    email: string;
+    orderId: OrderId;
+    razorpayOrderId: string;
+    userPrincipal: string;
+    timestamp: Timestamp;
+    items: Array<OrderItem>;
+    amount: bigint;
+}
+export type UserId = Principal;
 export interface InventoryItem {
     inStock: boolean;
     productId: ProductId;
     updatedAt: Timestamp;
 }
-export type UserId = Principal;
 export type CreateCheckoutSessionResult = {
     __kind__: "ok";
     ok: string;
@@ -174,6 +195,8 @@ export interface backendInterface {
     adminGetInventory(password: string): Promise<Array<InventoryItem>>;
     adminGetLoginHistory(password: string): Promise<Array<LoginEvent>>;
     adminGetOutOfStockProducts(password: string): Promise<Array<InventoryItem>>;
+    adminGetRazorpayPayments(password: string): Promise<Array<RazorpayPaymentRecord>>;
+    adminGetRazorpayStats(password: string): Promise<RazorpayStats | null>;
     adminGetUpiPayments(password: string): Promise<Array<UpiPaymentRecord>>;
     adminMarkContactRead(password: string, id: ContactId): Promise<{
         __kind__: "ok";
@@ -202,6 +225,7 @@ export interface backendInterface {
     cancelOrder(orderId: OrderId): Promise<boolean>;
     createStripeCheckoutSession(request: CreateCheckoutSessionRequest): Promise<CreateCheckoutSessionResult>;
     getAverageRating(productId: string): Promise<number | null>;
+    getMyRazorpayPayments(): Promise<Array<RazorpayPaymentRecord>>;
     getReviews(productId: string): Promise<Array<Review>>;
     getUserOrders(): Promise<Array<Order>>;
     placeOrder(request: PlaceOrderRequest): Promise<Order>;
@@ -213,6 +237,13 @@ export interface backendInterface {
         err: string;
     }>;
     recordLogin(method: LoginMethod, displayName: string | null): Promise<void>;
+    recordRazorpayPayment(razorpayPaymentId: string, razorpayOrderId: string, amount: bigint, email: string, orderId: OrderId, items: Array<OrderItem>, paymentMethod: string, status: string, errorMessage: string): Promise<{
+        __kind__: "ok";
+        ok: RazorpayPaymentRecord;
+    } | {
+        __kind__: "err";
+        err: string;
+    }>;
     recordUpiPayment(orderId: OrderId, upiTransactionId: string, amount: bigint): Promise<{
         __kind__: "ok";
         ok: string;

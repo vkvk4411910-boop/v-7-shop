@@ -46,6 +46,8 @@ export interface DashboardStats {
   'cancelledOrders' : bigint,
   'totalOrders' : bigint,
   'damagedOrders' : bigint,
+  'totalRazorpayTransactions' : bigint,
+  'totalRazorpayRevenue' : bigint,
   'refundedOrders' : bigint,
   'uniqueCustomers' : bigint,
   'inStockCount' : bigint,
@@ -110,6 +112,25 @@ export interface ProductUpdate {
   'inStock' : [] | [boolean],
   'price' : [] | [number],
 }
+export interface RazorpayPaymentRecord {
+  'razorpayPaymentId' : string,
+  'status' : string,
+  'paymentMethod' : string,
+  'errorMessage' : string,
+  'email' : string,
+  'orderId' : OrderId,
+  'razorpayOrderId' : string,
+  'userPrincipal' : string,
+  'timestamp' : Timestamp,
+  'items' : Array<OrderItem>,
+  'amount' : bigint,
+}
+export interface RazorpayStats {
+  'failedCount' : bigint,
+  'successCount' : bigint,
+  'totalRevenue' : bigint,
+  'totalTransactions' : bigint,
+}
 export interface Review {
   'id' : ReviewId,
   'text' : string,
@@ -156,6 +177,11 @@ export interface _SERVICE {
   'adminGetInventory' : ActorMethod<[string], Array<InventoryItem>>,
   'adminGetLoginHistory' : ActorMethod<[string], Array<LoginEvent>>,
   'adminGetOutOfStockProducts' : ActorMethod<[string], Array<InventoryItem>>,
+  'adminGetRazorpayPayments' : ActorMethod<
+    [string],
+    Array<RazorpayPaymentRecord>
+  >,
+  'adminGetRazorpayStats' : ActorMethod<[string], [] | [RazorpayStats]>,
   'adminGetUpiPayments' : ActorMethod<[string], Array<UpiPaymentRecord>>,
   'adminMarkContactRead' : ActorMethod<
     [string, ContactId],
@@ -187,6 +213,7 @@ export interface _SERVICE {
     CreateCheckoutSessionResult
   >,
   'getAverageRating' : ActorMethod<[string], [] | [number]>,
+  'getMyRazorpayPayments' : ActorMethod<[], Array<RazorpayPaymentRecord>>,
   'getReviews' : ActorMethod<[string], Array<Review>>,
   'getUserOrders' : ActorMethod<[], Array<Order>>,
   'placeOrder' : ActorMethod<[PlaceOrderRequest], Order>,
@@ -196,6 +223,21 @@ export interface _SERVICE {
       { 'err' : string }
   >,
   'recordLogin' : ActorMethod<[LoginMethod, [] | [string]], undefined>,
+  'recordRazorpayPayment' : ActorMethod<
+    [
+      string,
+      string,
+      bigint,
+      string,
+      OrderId,
+      Array<OrderItem>,
+      string,
+      string,
+      string,
+    ],
+    { 'ok' : RazorpayPaymentRecord } |
+      { 'err' : string }
+  >,
   'recordUpiPayment' : ActorMethod<
     [OrderId, string, bigint],
     { 'ok' : string } |

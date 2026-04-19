@@ -1,3 +1,4 @@
+import { CrystalCube } from "@/components/CrystalCube";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
@@ -54,6 +55,17 @@ export function HeroBanner() {
           Trusted by millions. Delivered fast.
         </motion.p>
 
+        {/* 3D Crystal Cube — discount posters, drag to rotate */}
+        <motion.div
+          className="w-full max-w-xs sm:max-w-sm md:max-w-md mt-2"
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.28 }}
+          data-ocid="hero-crystal-cube"
+        >
+          <CrystalCube />
+        </motion.div>
+
         <motion.div
           className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1 sm:mt-2"
           initial={{ opacity: 0, y: 24 }}
@@ -75,6 +87,11 @@ export function HeroBanner() {
               size="default"
               className="text-primary-foreground hover:bg-white/20 rounded-full px-5 sm:px-6 text-sm min-h-[44px]"
               data-ocid="hero-new-arrivals"
+              onClick={() =>
+                document
+                  .getElementById("new-arrivals")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }
             >
               New Arrivals
             </Button>

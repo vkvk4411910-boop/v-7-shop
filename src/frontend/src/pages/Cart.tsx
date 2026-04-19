@@ -7,6 +7,7 @@ import {
   useCreateStripeSession,
   usePlaceOrder,
   useRecordAltPayment,
+  useRecordRazorpayPayment,
   useRecordUpiPayment,
   useVerifyStripePayment,
 } from "@/hooks/useBackend";
@@ -18,7 +19,10 @@ import {
   ArrowRight,
   CheckCircle2,
   CreditCard,
+  Eye,
+  EyeOff,
   Loader2,
+  Lock,
   LogIn,
   MapPin,
   Minus,
@@ -26,12 +30,14 @@ import {
   Package,
   Plus,
   QrCode,
+  RefreshCw,
   ShieldCheck,
   ShoppingBag,
   ShoppingCart,
   Smartphone,
   Trash2,
   Truck,
+  XCircle as XCircleIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
@@ -242,6 +248,570 @@ function GoogleIcon({ size = 16 }: { size?: number }) {
   );
 }
 
+// ── Card payment helpers ──────────────────────────────────────────────────────
+
+interface CardForm {
+  number: string;
+  expiry: string;
+  cvv: string;
+  name: string;
+}
+
+type CardBrand = "visa" | "mastercard" | "amex" | "unknown";
+
+function detectCardBrand(number: string): CardBrand {
+  const raw = number.replace(/\s/g, "");
+  if (raw.startsWith("4")) return "visa";
+  if (/^5[1-5]/.test(raw)) return "mastercard";
+  if (/^3[47]/.test(raw)) return "amex";
+  return "unknown";
+}
+
+function formatCardNumber(raw: string, brand: CardBrand): string {
+  const digits = raw.replace(/\D/g, "");
+  const maxLen = brand === "amex" ? 15 : 16;
+  const capped = digits.slice(0, maxLen);
+  if (brand === "amex") {
+    // 4-6-5 format
+    return capped
+      .replace(/^(\d{4})(\d{0,6})(\d{0,5})$/, (_, a, b, c) =>
+        [a, b, c].filter(Boolean).join(" "),
+      )
+      .trim();
+  }
+  // 4-4-4-4 format
+  return capped.replace(/(.{4})/g, "$1 ").trim();
+}
+
+function formatExpiry(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 4);
+  if (digits.length > 2) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return digits;
+}
+
+function validateCardForm(
+  card: CardForm,
+): Partial<Record<keyof CardForm, string>> {
+  const errs: Partial<Record<keyof CardForm, string>> = {};
+  const digits = card.number.replace(/\s/g, "");
+  const brand = detectCardBrand(card.number);
+  const expectedLen = brand === "amex" ? 15 : 16;
+  if (digits.length !== expectedLen)
+    errs.number = `Enter a valid ${expectedLen}-digit card number`;
+
+  const [mm, yy] = card.expiry.split("/");
+  if (!mm || !yy || mm.length !== 2 || yy.length !== 2) {
+    errs.expiry = "Enter expiry as MM/YY";
+  } else {
+    const month = Number.parseInt(mm, 10);
+    const year = 2000 + Number.parseInt(yy, 10);
+    const now = new Date();
+    if (month < 1 || month > 12) errs.expiry = "Invalid month";
+    else if (
+      year < now.getFullYear() ||
+      (year === now.getFullYear() && month < now.getMonth() + 1)
+    )
+      errs.expiry = "Card has expired";
+  }
+
+  const cvvLen = brand === "amex" ? 4 : 3;
+  if (!/^\d+$/.test(card.cvv) || card.cvv.length !== cvvLen)
+    errs.cvv = `CVV must be ${cvvLen} digits`;
+
+  if (!card.name.trim()) errs.name = "Name on card is required";
+
+  return errs;
+}
+
+// Visa logo SVG
+function VisaLogo() {
+  return (
+    <svg width="36" height="12" viewBox="0 0 36 12" aria-label="Visa">
+      <title>Visa</title>
+      <rect width="36" height="12" rx="2" fill="#1A1F71" />
+      <text
+        x="18"
+        y="9"
+        textAnchor="middle"
+        fill="#F7B600"
+        fontSize="8"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        VISA
+      </text>
+    </svg>
+  );
+}
+
+// Mastercard logo SVG
+function MastercardLogo() {
+  return (
+    <svg width="32" height="20" viewBox="0 0 32 20" aria-label="Mastercard">
+      <title>Mastercard</title>
+      <circle cx="12" cy="10" r="10" fill="#EB001B" />
+      <circle cx="20" cy="10" r="10" fill="#F79E1B" />
+      <path d="M16 3.8a10 10 0 0 1 0 12.4A10 10 0 0 1 16 3.8z" fill="#FF5F00" />
+    </svg>
+  );
+}
+
+// Amex logo SVG
+function AmexLogo() {
+  return (
+    <svg width="36" height="12" viewBox="0 0 36 12" aria-label="Amex">
+      <title>American Express</title>
+      <rect width="36" height="12" rx="2" fill="#007BC1" />
+      <text
+        x="18"
+        y="9"
+        textAnchor="middle"
+        fill="white"
+        fontSize="7"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        AMEX
+      </text>
+    </svg>
+  );
+}
+
+function CardBrandLogo({ brand }: { brand: CardBrand }) {
+  if (brand === "visa") return <VisaLogo />;
+  if (brand === "mastercard") return <MastercardLogo />;
+  if (brand === "amex") return <AmexLogo />;
+  return <CreditCard className="h-5 w-5 text-muted-foreground/50" />;
+}
+
+// Live card preview illustration
+function CardPreview({
+  card,
+  brand,
+  flipped,
+}: {
+  card: CardForm;
+  brand: CardBrand;
+  flipped: boolean;
+}) {
+  const formattedDisplay =
+    card.number.replace(/\s/g, "").length > 0
+      ? card.number.padEnd(brand === "amex" ? 19 : 19, " ")
+      : brand === "amex"
+        ? "•••• •••••• •••••"
+        : "•••• •••• •••• ••••";
+
+  const bgGradient =
+    brand === "visa"
+      ? "from-[#1A1F71] to-[#2D3592]"
+      : brand === "mastercard"
+        ? "from-[#1a1a2e] to-[#16213e]"
+        : brand === "amex"
+          ? "from-[#007BC1] to-[#005fa3]"
+          : "from-[#1a1a2e] to-[#16213e]";
+
+  return (
+    <div
+      className="w-full max-w-[320px] mx-auto"
+      style={{ perspective: "1000px" }}
+    >
+      <motion.div
+        animate={{ rotateY: flipped ? 180 : 0 }}
+        transition={{ duration: 0.5, ease: "easeInOut" }}
+        style={{ transformStyle: "preserve-3d", position: "relative" }}
+        className="h-[180px]"
+      >
+        {/* Front */}
+        <div
+          className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${bgGradient} p-5 flex flex-col justify-between shadow-xl`}
+          style={{ backfaceVisibility: "hidden" }}
+        >
+          {/* Chip + logo */}
+          <div className="flex items-start justify-between">
+            <svg
+              width="40"
+              height="30"
+              viewBox="0 0 40 30"
+              aria-hidden="true"
+              className="opacity-90"
+            >
+              <rect
+                width="40"
+                height="30"
+                rx="4"
+                fill="#D4AF37"
+                opacity="0.9"
+              />
+              <rect
+                x="14"
+                y="0"
+                width="12"
+                height="30"
+                fill="#C4A020"
+                opacity="0.4"
+              />
+              <rect
+                x="0"
+                y="10"
+                width="40"
+                height="10"
+                fill="#C4A020"
+                opacity="0.4"
+              />
+              <rect
+                x="12"
+                y="8"
+                width="16"
+                height="14"
+                rx="2"
+                fill="#B8960C"
+                opacity="0.6"
+              />
+            </svg>
+            <div className="flex items-center">
+              <CardBrandLogo brand={brand} />
+            </div>
+          </div>
+
+          {/* Card number */}
+          <div>
+            <p
+              className="text-white/90 font-mono text-lg tracking-[0.2em] leading-none select-none"
+              style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
+            >
+              {formattedDisplay}
+            </p>
+          </div>
+
+          {/* Name + expiry */}
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-white/50 text-[9px] uppercase tracking-widest mb-0.5">
+                Card Holder
+              </p>
+              <p className="text-white font-semibold text-sm uppercase tracking-wide truncate max-w-[150px]">
+                {card.name.trim() || "YOUR NAME"}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-white/50 text-[9px] uppercase tracking-widest mb-0.5">
+                Expires
+              </p>
+              <p className="text-white font-mono font-semibold text-sm">
+                {card.expiry || "MM/YY"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Back */}
+        <div
+          className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${bgGradient} shadow-xl flex flex-col justify-between`}
+          style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+        >
+          <div className="h-10 bg-black/60 mt-6 w-full" />
+          <div className="px-5 pb-5">
+            <div className="bg-white/20 rounded px-3 py-2 flex items-center justify-end gap-2">
+              <p className="text-white/50 text-xs mr-auto">CVV</p>
+              <p className="text-white font-mono font-bold tracking-widest">
+                {"•".repeat(card.cvv.length || 3)}
+              </p>
+            </div>
+            <p className="text-white/40 text-[9px] text-center mt-3">
+              This card is issued for demo purposes only
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// Inline card payment form component
+function InlineCardForm({
+  total,
+  onPay,
+  isPaying,
+}: {
+  total: number;
+  onPay: (card: CardForm) => Promise<void>;
+  isPaying: boolean;
+}) {
+  const [card, setCard] = useState<CardForm>({
+    number: "",
+    expiry: "",
+    cvv: "",
+    name: "",
+  });
+  const [cardTouched, setCardTouched] = useState<
+    Partial<Record<keyof CardForm, boolean>>
+  >({});
+  const [cardErrors, setCardErrors] = useState<
+    Partial<Record<keyof CardForm, string>>
+  >({});
+  const [showCvv, setShowCvv] = useState(false);
+  const [cvvFocused, setCvvFocused] = useState(false);
+
+  const brand = detectCardBrand(card.number);
+
+  function handleCardChange(field: keyof CardForm, raw: string) {
+    let value = raw;
+    if (field === "number") value = formatCardNumber(raw, brand);
+    if (field === "expiry") value = formatExpiry(raw);
+    if (field === "cvv")
+      value = raw.replace(/\D/g, "").slice(0, brand === "amex" ? 4 : 3);
+    const updated = { ...card, [field]: value };
+    setCard(updated);
+    if (cardTouched[field]) setCardErrors(validateCardForm(updated));
+  }
+
+  function handleCardBlur(field: keyof CardForm) {
+    setCardTouched((t) => ({ ...t, [field]: true }));
+    setCardErrors(validateCardForm(card));
+  }
+
+  async function handleSubmit() {
+    const allTouched: Partial<Record<keyof CardForm, boolean>> = {
+      number: true,
+      expiry: true,
+      cvv: true,
+      name: true,
+    };
+    setCardTouched(allTouched);
+    const errs = validateCardForm(card);
+    setCardErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    await onPay(card);
+  }
+
+  return (
+    <motion.div
+      key="card-form"
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      className="mt-3 overflow-hidden"
+    >
+      <div className="p-4 bg-primary/5 rounded-xl border border-primary/20 space-y-4">
+        {/* Card preview */}
+        <CardPreview card={card} brand={brand} flipped={cvvFocused} />
+
+        {/* Accepted cards note */}
+        <div className="flex items-center gap-2 justify-center flex-wrap">
+          <span className="text-xs text-muted-foreground">Accepted:</span>
+          <VisaLogo />
+          <MastercardLogo />
+          <AmexLogo />
+          <span className="text-xs text-muted-foreground">& more</span>
+        </div>
+
+        {/* Name on card */}
+        <div className="space-y-1.5">
+          <Label
+            htmlFor="card-name"
+            className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+          >
+            Name on Card
+          </Label>
+          <Input
+            id="card-name"
+            placeholder="e.g. Rahul Sharma"
+            value={card.name}
+            onChange={(e) => handleCardChange("name", e.target.value)}
+            onBlur={() => handleCardBlur("name")}
+            autoComplete="cc-name"
+            className={`h-11 font-medium ${cardErrors.name && cardTouched.name ? "border-destructive ring-1 ring-destructive/30" : ""}`}
+            data-ocid="cart.card_name.input"
+          />
+          {cardErrors.name && cardTouched.name && (
+            <p
+              className="text-xs text-destructive"
+              data-ocid="cart.card_name.field_error"
+            >
+              {cardErrors.name}
+            </p>
+          )}
+        </div>
+
+        {/* Card number */}
+        <div className="space-y-1.5">
+          <Label
+            htmlFor="card-number"
+            className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+          >
+            Card Number
+          </Label>
+          <div className="relative">
+            <Input
+              id="card-number"
+              placeholder="1234 5678 9012 3456"
+              value={card.number}
+              onChange={(e) => handleCardChange("number", e.target.value)}
+              onBlur={() => handleCardBlur("number")}
+              autoComplete="cc-number"
+              inputMode="numeric"
+              maxLength={brand === "amex" ? 17 : 19}
+              className={`h-11 font-mono pr-12 ${cardErrors.number && cardTouched.number ? "border-destructive ring-1 ring-destructive/30" : ""}`}
+              data-ocid="cart.card_number.input"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
+              <CardBrandLogo brand={brand} />
+            </div>
+          </div>
+          {cardErrors.number && cardTouched.number && (
+            <p
+              className="text-xs text-destructive"
+              data-ocid="cart.card_number.field_error"
+            >
+              {cardErrors.number}
+            </p>
+          )}
+        </div>
+
+        {/* Expiry + CVV row */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Expiry */}
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="card-expiry"
+              className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+            >
+              Expiry Date
+            </Label>
+            <Input
+              id="card-expiry"
+              placeholder="MM/YY"
+              value={card.expiry}
+              onChange={(e) => handleCardChange("expiry", e.target.value)}
+              onBlur={() => handleCardBlur("expiry")}
+              autoComplete="cc-exp"
+              inputMode="numeric"
+              maxLength={5}
+              className={`h-11 font-mono ${cardErrors.expiry && cardTouched.expiry ? "border-destructive ring-1 ring-destructive/30" : ""}`}
+              data-ocid="cart.card_expiry.input"
+            />
+            {cardErrors.expiry && cardTouched.expiry && (
+              <p
+                className="text-xs text-destructive"
+                data-ocid="cart.card_expiry.field_error"
+              >
+                {cardErrors.expiry}
+              </p>
+            )}
+          </div>
+
+          {/* CVV */}
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="card-cvv"
+              className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1"
+            >
+              <Lock className="h-3 w-3" /> CVV
+            </Label>
+            <div className="relative">
+              <Input
+                id="card-cvv"
+                placeholder={brand === "amex" ? "••••" : "•••"}
+                value={card.cvv}
+                type={showCvv ? "text" : "password"}
+                onChange={(e) => handleCardChange("cvv", e.target.value)}
+                onBlur={() => {
+                  handleCardBlur("cvv");
+                  setCvvFocused(false);
+                }}
+                onFocus={() => setCvvFocused(true)}
+                autoComplete="cc-csc"
+                inputMode="numeric"
+                maxLength={brand === "amex" ? 4 : 3}
+                className={`h-11 font-mono pr-9 ${cardErrors.cvv && cardTouched.cvv ? "border-destructive ring-1 ring-destructive/30" : ""}`}
+                data-ocid="cart.card_cvv.input"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => setShowCvv((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label={showCvv ? "Hide CVV" : "Show CVV"}
+                data-ocid="cart.card_cvv_toggle.button"
+              >
+                {showCvv ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+            {cardErrors.cvv && cardTouched.cvv && (
+              <p
+                className="text-xs text-destructive"
+                data-ocid="cart.card_cvv.field_error"
+              >
+                {cardErrors.cvv}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Pay button */}
+        <Button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isPaying}
+          size="lg"
+          className="w-full rounded-full font-bold text-base"
+          data-ocid="cart.card_pay.primary_button"
+        >
+          {isPaying ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Processing Payment…
+            </>
+          ) : (
+            <>
+              <ShieldCheck className="h-5 w-5 mr-2" />
+              Pay ₹{total.toLocaleString("en-IN")} Securely
+            </>
+          )}
+        </Button>
+
+        <p className="text-[10px] text-muted-foreground text-center flex items-center justify-center gap-1">
+          <Lock className="h-3 w-3" />
+          Your card details are encrypted and secure
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Razorpay global type declaration ──────────────────────────────────────────
+// Razorpay Standard Checkout is loaded via script tag; declare the global here
+interface RazorpayResponse {
+  razorpay_payment_id?: string;
+  razorpay_order_id?: string;
+  error?: {
+    code?: string;
+    description?: string;
+    reason?: string;
+    source?: string;
+    step?: string;
+    metadata?: Record<string, string>;
+  };
+}
+
+declare global {
+  interface Window {
+    Razorpay: new (
+      options: Record<string, unknown>,
+    ) => {
+      open: () => void;
+      on: (
+        event: string,
+        handler: (response: RazorpayResponse) => void,
+      ) => void;
+    };
+  }
+}
+
 export function CartPage() {
   const {
     cartItems,
@@ -250,6 +820,7 @@ export function CartPage() {
     clearCart,
     cartTotal,
     cartCount,
+    userPrincipal,
   } = useStore();
   const { isLoggedIn } = useIdentity();
   const placeOrder = usePlaceOrder();
@@ -257,6 +828,7 @@ export function CartPage() {
   const verifyStripePayment = useVerifyStripePayment();
   const recordUpiPayment = useRecordUpiPayment();
   const recordAltPayment = useRecordAltPayment();
+  const recordRazorpayPayment = useRecordRazorpayPayment();
   const navigate = useNavigate();
 
   // Read URL search params for Stripe return
@@ -283,11 +855,18 @@ export function CartPage() {
   const [upiOrderId, setUpiOrderId] = useState<bigint | null>(null);
   const [upiPaid, setUpiPaid] = useState(false);
 
-  // Alt payment state (PayPal / Razorpay / Cashfree)
+  // Alt payment state (PayPal / Cashfree only — Razorpay now uses Standard Checkout)
   const [altOrderId, setAltOrderId] = useState<bigint | null>(null);
   const [altTxnId, setAltTxnId] = useState("");
   const [altPayerEmail, setAltPayerEmail] = useState("");
   const [altPayStep, setAltPayStep] = useState(false);
+
+  // Razorpay Standard Checkout state
+  const [razorpayLoading, setRazorpayLoading] = useState(false);
+  const [razorpayError, setRazorpayError] = useState("");
+
+  // Inline card payment state
+  const [cardPaying, setCardPaying] = useState(false);
 
   const total = cartTotal();
   const count = cartCount();
@@ -332,6 +911,18 @@ export function CartPage() {
     navigate,
     verifyStripePayment.mutate,
   ]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load Razorpay Standard Checkout script dynamically on mount
+  // Only loaded when Razorpay is selected to avoid unnecessary network requests
+  useEffect(() => {
+    if (paymentMethod !== "razorpay") return;
+    if (document.getElementById("razorpay-checkout-script")) return;
+    const script = document.createElement("script");
+    script.id = "razorpay-checkout-script";
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+  }, [paymentMethod]);
 
   function handleChange(field: keyof AddressForm, value: string) {
     const updated = { ...form, [field]: value };
@@ -417,6 +1008,51 @@ export function CartPage() {
       },
       { timeout: 12000, enableHighAccuracy: false },
     );
+  }
+
+  // ── Inline card payment handler ───────────────────────────────────────────
+  async function handleCardPay(_card: CardForm) {
+    setTouched({
+      fullName: true,
+      phone: true,
+      houseNumber: false,
+      state: true,
+      city: true,
+      pinCode: true,
+    });
+    const errs = validate(form);
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      toast.error("Please fill in your delivery address first.");
+      return;
+    }
+
+    setCardPaying(true);
+    const address: Address = {
+      city: form.city.trim(),
+      state: form.state,
+      pin: form.pinCode.trim(),
+      houseNumber: form.houseNumber.trim(),
+    };
+    const orderItems = cartItems.map((i) => ({
+      productId: i.product.id,
+      name: i.product.name,
+      quantity: BigInt(i.quantity) as unknown as bigint,
+      price: i.product.price,
+    }));
+
+    try {
+      await placeOrder.mutateAsync({ items: orderItems, address });
+      clearCart();
+      setForm(EMPTY_FORM);
+      setTouched({});
+      toast.success("🎉 Payment successful! Your order has been placed.");
+      void navigate({ to: "/orders" });
+    } catch {
+      toast.error("Payment failed. Please try again.");
+    } finally {
+      setCardPaying(false);
+    }
   }
 
   async function handlePlaceOrder() {
@@ -507,12 +1143,8 @@ export function CartPage() {
       return;
     }
 
-    // PayPal / Razorpay / Cashfree flow
-    if (
-      paymentMethod === "paypal" ||
-      paymentMethod === "razorpay" ||
-      paymentMethod === "cashfree"
-    ) {
+    // PayPal / Cashfree flow (manual txn ID confirmation)
+    if (paymentMethod === "paypal" || paymentMethod === "cashfree") {
       try {
         const order = await placeOrder.mutateAsync({
           items: orderItems,
@@ -528,6 +1160,135 @@ export function CartPage() {
         toast.info("Order placed! Complete your payment below to confirm.");
       } catch {
         // error toast handled in hook
+      }
+      return;
+    }
+
+    // ── Razorpay Standard Checkout flow ───────────────────────────────────────
+    if (paymentMethod === "razorpay") {
+      if (!window.Razorpay) {
+        toast.error(
+          "Razorpay is not loaded yet. Please wait a moment and try again.",
+        );
+        return;
+      }
+      try {
+        setRazorpayLoading(true);
+        const order = await placeOrder.mutateAsync({
+          items: orderItems,
+          address,
+        });
+        const orderId = order.id;
+
+        // Prefill email using the Internet Identity principal as identifier.
+        // Internet Identity does not expose a real email, so we derive one:
+        //   format → principal@v7shop.app
+        const prefillEmail = userPrincipal
+          ? `${userPrincipal}@v7shop.app`
+          : "guest@v7shop.app";
+
+        // TODO: Replace 'rzp_test_xxxxxxxxxxxxxxxxxxxx' with your live Razorpay
+        // key from https://dashboard.razorpay.com before going to production.
+        // Keep the test key for sandbox/staging environments.
+        const rzp = new window.Razorpay({
+          key: "rzp_test_xxxxxxxxxxxxxxxxxxxx", // ← TODO: replace with real key
+          amount: Math.round(total * 100), // paise (rupees × 100)
+          currency: "INR",
+          name: "V-7 Shop",
+          description: `Order #${orderId.toString()}`,
+          payment_capture: 1,
+          prefill: {
+            email: prefillEmail,
+            contact: "",
+          },
+          theme: {
+            color: "#6366f1",
+            background: "#ffffff",
+          },
+          modal: {
+            backdropclose: false,
+          },
+          config: {
+            display: {
+              blocks: {
+                banks: {
+                  name: "Pay via Net Banking",
+                  instruments: [{ method: "netbanking" }],
+                },
+                cards: {
+                  name: "Pay via Cards",
+                  instruments: [{ method: "card" }],
+                },
+                upi: {
+                  name: "Pay via UPI",
+                  instruments: [{ method: "upi" }],
+                },
+                wallets: {
+                  name: "Pay via Wallets",
+                  instruments: [{ method: "wallet" }],
+                },
+              },
+              sequence: [
+                "block.upi",
+                "block.cards",
+                "block.banks",
+                "block.wallets",
+              ],
+              preferences: { show_default_blocks: true },
+            },
+          },
+        });
+
+        rzp.on("payment.success", (response) => {
+          setRazorpayLoading(false);
+          setRazorpayError("");
+          recordRazorpayPayment.mutate({
+            razorpayPaymentId: response.razorpay_payment_id ?? "",
+            razorpayOrderId: response.razorpay_order_id ?? "",
+            amount: Math.round(total * 100),
+            email: prefillEmail,
+            userPrincipal: userPrincipal ?? "",
+            orderId: Number(orderId),
+            items: orderItems,
+            paymentMethod: "razorpay",
+            status: "success",
+            errorMessage: "",
+            timestamp: Date.now(),
+          });
+          clearCart();
+          setForm(EMPTY_FORM);
+          setTouched({});
+          toast.success("🎉 Payment successful! Your order has been placed.");
+          void navigate({ to: "/orders" });
+        });
+
+        rzp.on("payment.failed", (response) => {
+          setRazorpayLoading(false);
+          const errMsg =
+            response.error?.description ??
+            response.error?.reason ??
+            "Payment failed";
+          setRazorpayError(errMsg);
+          recordRazorpayPayment.mutate({
+            razorpayPaymentId: "",
+            razorpayOrderId: "",
+            amount: Math.round(total * 100),
+            email: prefillEmail,
+            userPrincipal: userPrincipal ?? "",
+            orderId: Number(orderId),
+            items: orderItems,
+            paymentMethod: "razorpay",
+            status: "failed",
+            errorMessage: errMsg,
+            timestamp: Date.now(),
+          });
+          toast.error(`Payment failed: ${errMsg}. Please retry.`);
+        });
+
+        rzp.open();
+      } catch {
+        setRazorpayLoading(false);
+        // placeOrder error toast handled in hook
       }
       return;
     }
@@ -602,7 +1363,10 @@ export function CartPage() {
   }
 
   const isPlacingOrder =
-    placeOrder.isPending || createStripeSession.isPending || stripeProcessing;
+    placeOrder.isPending ||
+    createStripeSession.isPending ||
+    stripeProcessing ||
+    razorpayLoading;
 
   // ─── UPI confirmation screen (after order placed, awaiting payment confirm) ──
   if (upiPaid && upiOrderId) {
@@ -704,10 +1468,10 @@ export function CartPage() {
     );
   }
 
-  // ─── Alt payment confirmation screen (PayPal / Razorpay / Cashfree) ──────────
+  // ─── Alt payment confirmation screen (PayPal / Cashfree) ────────────────────
+  // NOTE: Razorpay no longer uses this flow — it uses Standard Checkout popup
   if (altPayStep && altOrderId) {
     const isPaypal = paymentMethod === "paypal";
-    const isRazorpay = paymentMethod === "razorpay";
     const isCashfree = paymentMethod === "cashfree";
 
     const altConfig = {
@@ -726,17 +1490,6 @@ export function CartPage() {
         upiId: "v7shop@paypal.com",
         description: "Enter your PayPal email — we'll send a payment request.",
       },
-      razorpay: {
-        label: "Razorpay",
-        color: "bg-blue-500/10 border-blue-500/20",
-        iconBg: "bg-blue-500/10",
-        icon: (
-          <span className="text-xl font-extrabold text-blue-600">Razorpay</span>
-        ),
-        upiId: "v7shop@razorpay",
-        description:
-          "Pay via Razorpay UPI or scan the QR. Enter your transaction ID.",
-      },
       cashfree: {
         label: "Cashfree",
         color: "bg-green-600/10 border-green-600/20",
@@ -752,7 +1505,7 @@ export function CartPage() {
       },
     };
 
-    const cfg = altConfig[paymentMethod as "paypal" | "razorpay" | "cashfree"];
+    const cfg = altConfig[paymentMethod as "paypal" | "cashfree"];
 
     return (
       <div className="container mx-auto px-4 py-16 max-w-sm text-center">
@@ -776,7 +1529,7 @@ export function CartPage() {
             </p>
           </div>
 
-          {(isRazorpay || isCashfree) && (
+          {isCashfree && (
             <div className="flex justify-center">
               <div className="p-3 bg-background rounded-xl border border-border inline-block">
                 <DemoQrSvg size={130} />
@@ -834,13 +1587,11 @@ export function CartPage() {
                   htmlFor="alt-txn-id"
                   className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block"
                 >
-                  {isRazorpay
-                    ? "Razorpay Transaction ID"
-                    : "Cashfree Reference Number"}
+                  Cashfree Reference Number
                 </label>
                 <Input
                   id="alt-txn-id"
-                  placeholder="e.g. RZP-123456789"
+                  placeholder="e.g. CF-123456789"
                   value={altTxnId}
                   onChange={(e) => setAltTxnId(e.target.value)}
                   className="h-11 font-mono"
@@ -1046,6 +1797,61 @@ export function CartPage() {
           Login &amp; Checkout
         </Button>
       </motion.div>
+    ) : paymentMethod === "online" ? (
+      // Card form has its own Pay button — show a helper note in the sidebar
+      <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 text-center space-y-2">
+        <CreditCard className="h-7 w-7 text-primary mx-auto" />
+        <p className="text-sm font-semibold text-foreground">
+          Enter card details above
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Fill in your card number, expiry, and CVV in the payment section, then
+          tap <strong>Pay ₹{total.toLocaleString("en-IN")} Securely</strong>.
+        </p>
+      </div>
+    ) : paymentMethod === "razorpay" ? (
+      // Razorpay uses its own popup — the Place Order button triggers it
+      <div className="space-y-3">
+        {razorpayError && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2 text-xs text-destructive flex items-start gap-2"
+            data-ocid="cart.razorpay.error_state"
+          >
+            <XCircleIcon className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>{razorpayError}</span>
+          </motion.div>
+        )}
+        <Button
+          onClick={handlePlaceOrder}
+          disabled={isPlacingOrder}
+          size="lg"
+          className="w-full rounded-full font-bold text-base py-6 min-h-[52px] bg-indigo-600 hover:bg-indigo-700 text-white border-0"
+          data-ocid="cart.razorpay_pay.primary_button"
+        >
+          {isPlacingOrder ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Opening Razorpay…
+            </>
+          ) : razorpayError ? (
+            <>
+              <RefreshCw className="h-5 w-5 mr-2" />
+              Retry Razorpay Payment
+            </>
+          ) : (
+            <>
+              <ShieldCheck className="h-5 w-5 mr-2" />
+              Pay ₹{total.toLocaleString("en-IN")} via Razorpay
+            </>
+          )}
+        </Button>
+        <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5 text-indigo-500 flex-shrink-0" />
+          UPI · Cards · Net Banking · Wallets — all in one checkout
+        </p>
+      </div>
     ) : (
       <div className="space-y-3">
         <Button
@@ -1058,16 +1864,7 @@ export function CartPage() {
           {isPlacingOrder ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              {paymentMethod === "online"
-                ? createStripeSession.isPending
-                  ? "Creating Stripe session…"
-                  : "Processing…"
-                : "Placing Order…"}
-            </>
-          ) : paymentMethod === "online" ? (
-            <>
-              <CreditCard className="h-5 w-5 mr-2" />
-              Pay ₹{total.toLocaleString("en-IN")} Online
+              Placing Order…
             </>
           ) : paymentMethod === "upi" ? (
             <>
@@ -1084,11 +1881,6 @@ export function CartPage() {
               <CreditCard className="h-5 w-5 mr-2" />
               Place Order · Pay via PayPal
             </>
-          ) : paymentMethod === "razorpay" ? (
-            <>
-              <CreditCard className="h-5 w-5 mr-2" />
-              Place Order · Pay via Razorpay
-            </>
           ) : paymentMethod === "cashfree" ? (
             <>
               <CreditCard className="h-5 w-5 mr-2" />
@@ -1104,19 +1896,15 @@ export function CartPage() {
 
         <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5">
           <ShieldCheck className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-          {paymentMethod === "online"
-            ? "Secure payment via Stripe — you'll be redirected"
-            : paymentMethod === "upi"
-              ? "Pay via Paytm / PhonePe / any UPI app"
-              : paymentMethod === "gpay"
-                ? "Pay via Google Pay UPI"
-                : paymentMethod === "paypal"
-                  ? "Complete PayPal payment after order is placed"
-                  : paymentMethod === "razorpay"
-                    ? "Pay via Razorpay UPI or QR code"
-                    : paymentMethod === "cashfree"
-                      ? "Pay via Cashfree payment gateway"
-                      : "Secure checkout · Cash on Delivery"}
+          {paymentMethod === "upi"
+            ? "Pay via Paytm / PhonePe / any UPI app"
+            : paymentMethod === "gpay"
+              ? "Pay via Google Pay UPI"
+              : paymentMethod === "paypal"
+                ? "Complete PayPal payment after order is placed"
+                : paymentMethod === "cashfree"
+                  ? "Pay via Cashfree payment gateway"
+                  : "Secure checkout · Cash on Delivery"}
         </p>
       </div>
     );
@@ -1679,20 +2467,11 @@ export function CartPage() {
               {/* Expanded detail for selected method */}
               <AnimatePresence mode="wait">
                 {paymentMethod === "online" && (
-                  <motion.div
-                    key="stripe-info"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/20 flex items-start gap-2 overflow-hidden"
-                  >
-                    <CreditCard className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      You'll be redirected to Stripe's secure checkout page. We
-                      accept Visa, Mastercard, UPI, and more. Your order will be
-                      saved automatically.
-                    </p>
-                  </motion.div>
+                  <InlineCardForm
+                    total={total}
+                    onPay={handleCardPay}
+                    isPaying={cardPaying || placeOrder.isPending}
+                  />
                 )}
 
                 {paymentMethod === "upi" && (
@@ -1789,18 +2568,19 @@ export function CartPage() {
                     exit={{ opacity: 0, height: 0 }}
                     className="mt-3 overflow-hidden"
                   >
-                    <div className="p-3 bg-blue-50/40 rounded-lg border border-blue-300/50 flex items-start gap-2">
-                      <span className="text-xs font-extrabold text-blue-600 shrink-0 mt-0.5">
-                        RP
-                      </span>
+                    <div className="p-3 bg-indigo-50/60 rounded-lg border border-indigo-300/50 flex items-start gap-2">
+                      <div className="w-5 h-5 rounded bg-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-[9px] font-extrabold text-white">
+                          RP
+                        </span>
+                      </div>
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-foreground mb-0.5">
-                          UPI ID:{" "}
-                          <span className="font-mono">v7shop@razorpay</span>
+                          Razorpay Standard Checkout
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Pay via Razorpay UPI / QR code and enter your
-                          transaction ID to confirm.
+                          A secure Razorpay popup will open — pay via UPI,
+                          Cards, Net Banking, or Wallets. All methods enabled.
                         </p>
                       </div>
                     </div>

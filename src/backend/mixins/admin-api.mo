@@ -9,6 +9,8 @@ import LoginLib "../lib/logins";
 import InventoryLib "../lib/inventory";
 import ReviewLib "../lib/reviews";
 import ReviewTypes "../types/reviews";
+import RazorpayTypes "../types/razorpay-payment";
+import RazorpayLib "../lib/razorpay-payments";
 
 mixin (
   contacts : List.List<AdminTypes.ContactSubmission>,
@@ -18,6 +20,7 @@ mixin (
   orders : List.List<OrderTypes.Order>,
   adminPasswordHash : Text,
   reviewStore : ReviewLib.ReviewStore,
+  razorpayPayments : List.List<RazorpayTypes.RazorpayPaymentRecord>,
 ) {
   // ── Contact Us ──────────────────────────────────────────────────────────────
 
@@ -195,6 +198,7 @@ mixin (
       if (o.isDamaged) { damagedOrders += 1 };
     });
     let uniqueCustomers = customerSet.size();
+    let rzStats = RazorpayLib.computeRazorpayStats(razorpayPayments);
     ?{
       totalProducts;
       inStockCount;
@@ -204,6 +208,8 @@ mixin (
       refundedOrders;
       cancelledOrders;
       damagedOrders;
+      totalRazorpayRevenue = rzStats.totalRevenue;
+      totalRazorpayTransactions = rzStats.totalTransactions;
     };
   };
 };

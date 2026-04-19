@@ -13,6 +13,8 @@ import ReviewTypes "types/reviews";
 import StripePaymentApi "mixins/stripe-payment-api";
 import UpiPaymentApi "mixins/upi-payment-api";
 import AltPaymentApi "mixins/alt-payment-api";
+import RazorpayPaymentApi "mixins/razorpay-payment-api";
+import RazorpayTypes "types/razorpay-payment";
 
 
 
@@ -39,6 +41,9 @@ actor {
 
   // Alt payment records (PayPal, Razorpay, Cashfree)
   let altPayments = List.empty<OrderTypes.AltPaymentRecord>();
+
+  // Razorpay dedicated payment records
+  let razorpayPayments = List.empty<RazorpayTypes.RazorpayPaymentRecord>();
 
   // Seed fake reviews once at initialization
   var seedReviewsDone : Bool = false;
@@ -88,8 +93,9 @@ actor {
 
   include OrdersApi(orders, nextOrderId, adminPasswordHash);
   include ReviewsApi(reviewStore, nextReviewId);
-  include AdminApi(contacts, nextContactId, loginEvents, inventory, orders, adminPasswordHash, reviewStore);
+  include AdminApi(contacts, nextContactId, loginEvents, inventory, orders, adminPasswordHash, reviewStore, razorpayPayments);
   include StripePaymentApi(orders, stripeSecretKey, adminPasswordHash);
   include UpiPaymentApi(upiPayments, orders, adminPasswordHash);
   include AltPaymentApi(altPayments, orders, adminPasswordHash);
+  include RazorpayPaymentApi(razorpayPayments, orders, adminPasswordHash);
 };

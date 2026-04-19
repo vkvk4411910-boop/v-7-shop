@@ -33,6 +33,8 @@ module {
     refundedOrders : Nat;
     cancelledOrders : Nat;
     damagedOrders : Nat;
+    totalRazorpayRevenue : Nat;
+    totalRazorpayTransactions : Nat;
   };
 
   public type InventoryItem = {

@@ -4,11 +4,12 @@ import ProductDetailModal from "@/components/ProductDetailModal";
 import { TrustBadges } from "@/components/TrustBadges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { NEW_ARRIVALS } from "@/data/products";
 import { useStore } from "@/store/useStore";
 import { CATEGORIES } from "@/types";
 import type { Category, Product } from "@/types";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronRight, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 
@@ -271,6 +272,114 @@ export function HomePage() {
               </Button>
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* ── New Arrivals ── */}
+      <section
+        id="new-arrivals"
+        className="py-8 sm:py-10 bg-background"
+        data-ocid="new-arrivals-section"
+      >
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Heading row */}
+          <motion.div
+            className="flex items-center justify-between mb-5 sm:mb-6"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+          >
+            <div className="flex items-start gap-2.5 sm:gap-3">
+              <span className="mt-0.5 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+              </span>
+              <div>
+                <h2 className="text-lg sm:text-xl font-display font-extrabold text-foreground leading-tight">
+                  New Arrivals
+                </h2>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                  Fresh styles added daily — be first to wear them
+                </p>
+              </div>
+            </div>
+            <Link to="/products" search={{ q: "new", category: "" }}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full text-xs font-semibold border-primary text-primary hover:bg-primary hover:text-primary-foreground shrink-0"
+                data-ocid="new-arrivals-view-all"
+              >
+                View All <ArrowRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </Link>
+          </motion.div>
+
+          {/* Badge strip */}
+          <motion.div
+            className="flex items-center gap-2 mb-4 sm:mb-5 overflow-x-auto pb-1 scrollbar-hide"
+            initial={{ opacity: 0, x: -12 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.35, delay: 0.1 }}
+          >
+            {["All", "Shoes", "Men", "Women", "Beauty", "Sports"].map(
+              (label) => (
+                <Link
+                  key={label}
+                  to="/products"
+                  search={{
+                    q: label === "All" ? "new" : label.toLowerCase(),
+                    category:
+                      label === "All" ? "" : (label.toLowerCase() as Category),
+                  }}
+                  className="shrink-0 px-3.5 py-1.5 rounded-full border border-border bg-card text-xs font-semibold text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-smooth whitespace-nowrap"
+                  data-ocid={`new-arrivals-filter-${label.toLowerCase()}`}
+                >
+                  {label}
+                </Link>
+              ),
+            )}
+          </motion.div>
+
+          {/* Product grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+            {NEW_ARRIVALS.map((product, i) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.35, delay: i * 0.05 }}
+              >
+                <ProductCard
+                  product={product}
+                  index={i}
+                  onViewDetails={setSelectedProduct}
+                />
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Bottom CTA strip */}
+          <motion.div
+            className="mt-6 sm:mt-8 flex justify-center"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+          >
+            <Link to="/products" search={{ q: "new", category: "" }}>
+              <Button
+                size="lg"
+                variant="outline"
+                className="rounded-full px-8 font-bold border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-smooth"
+                data-ocid="new-arrivals-explore-all"
+              >
+                Explore All New Arrivals <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </motion.div>
         </div>
       </section>
 

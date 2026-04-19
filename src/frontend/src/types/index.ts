@@ -88,6 +88,20 @@ export interface AltPaymentRecord {
   status: string;
 }
 
+export interface RazorpayPaymentRecord {
+  razorpayPaymentId: string;
+  razorpayOrderId: string;
+  amount: number; // in paise (rupees × 100)
+  email: string;
+  userPrincipal: string;
+  orderId: number;
+  items: OrderItem[];
+  paymentMethod: string;
+  status: string; // "success" | "failed"
+  errorMessage: string;
+  timestamp: number;
+}
+
 export interface UpiPaymentRecord {
   orderId: bigint;
   upiTransactionId: string;
