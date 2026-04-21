@@ -11,7 +11,19 @@ import {
 import * as THREE from "three";
 import type { Mesh } from "three";
 
-// ─── Face configuration ────────────────────────────────────────────────────────
+// ─── Vivid fallback gradients (never dark/black) ──────────────────────────────
+const FALLBACK_GRADIENTS = [
+  ["#FF006E", "#FF6B35", "#FFBE0B"], // hot pink → orange → yellow
+  ["#9B5DE5", "#7C4DFF", "#00B4D8"], // purple → violet → blue
+  ["#00B4D8", "#06D6A0", "#00BCD4"], // sky → teal → cyan
+  ["#FF006E", "#E91E63", "#FF8F00"], // pink → rose → amber
+  ["#06D6A0", "#43A047", "#00BCD4"], // mint → green → cyan
+  ["#FF8F00", "#F77F00", "#FF006E"], // amber → coral → pink
+];
+
+// ─── Face configuration — 5 Picsum images per face (IDs always available) ─────
+// Picsum format: https://picsum.photos/id/{ID}/512/512
+// Using portrait/fashion-appropriate IDs from Picsum's curated library
 const FACES = [
   {
     label: "70% OFF",
@@ -19,9 +31,11 @@ const FACES = [
     accent: "#FF6B35",
     attenuation: "#ffe8d6",
     slides: [
-      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=512&q=80",
-      "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=512&q=80",
-      "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=512&q=80",
+      "https://picsum.photos/id/64/512/512",
+      "https://picsum.photos/id/177/512/512",
+      "https://picsum.photos/id/338/512/512",
+      "https://picsum.photos/id/96/512/512",
+      "https://picsum.photos/id/247/512/512",
     ],
   },
   {
@@ -30,9 +44,11 @@ const FACES = [
     accent: "#7C4DFF",
     attenuation: "#ede8ff",
     slides: [
-      "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=512&q=80",
-      "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=512&q=80",
-      "https://images.unsplash.com/photo-1495385794356-15371f348c31?w=512&q=80",
+      "https://picsum.photos/id/1/512/512",
+      "https://picsum.photos/id/10/512/512",
+      "https://picsum.photos/id/20/512/512",
+      "https://picsum.photos/id/30/512/512",
+      "https://picsum.photos/id/37/512/512",
     ],
   },
   {
@@ -41,9 +57,11 @@ const FACES = [
     accent: "#00BCD4",
     attenuation: "#d6f7ff",
     slides: [
-      "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=512&q=80",
-      "https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=512&q=80",
-      "https://images.unsplash.com/photo-1566206091558-7f218b696731?w=512&q=80",
+      "https://picsum.photos/id/48/512/512",
+      "https://picsum.photos/id/57/512/512",
+      "https://picsum.photos/id/74/512/512",
+      "https://picsum.photos/id/83/512/512",
+      "https://picsum.photos/id/91/512/512",
     ],
   },
   {
@@ -52,9 +70,11 @@ const FACES = [
     accent: "#E91E63",
     attenuation: "#ffe8f0",
     slides: [
-      "https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?w=512&q=80",
-      "https://images.unsplash.com/photo-1475180098004-ca77a66827be?w=512&q=80",
-      "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=512&q=80",
+      "https://picsum.photos/id/103/512/512",
+      "https://picsum.photos/id/111/512/512",
+      "https://picsum.photos/id/119/512/512",
+      "https://picsum.photos/id/122/512/512",
+      "https://picsum.photos/id/137/512/512",
     ],
   },
   {
@@ -63,9 +83,11 @@ const FACES = [
     accent: "#43A047",
     attenuation: "#d6f7e0",
     slides: [
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=512&q=80",
-      "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=512&q=80",
-      "https://images.unsplash.com/photo-1588099768531-a72d4a198538?w=512&q=80",
+      "https://picsum.photos/id/145/512/512",
+      "https://picsum.photos/id/152/512/512",
+      "https://picsum.photos/id/159/512/512",
+      "https://picsum.photos/id/162/512/512",
+      "https://picsum.photos/id/191/512/512",
     ],
   },
   {
@@ -74,12 +96,14 @@ const FACES = [
     accent: "#FF8F00",
     attenuation: "#fff3d6",
     slides: [
-      "https://images.unsplash.com/photo-1496217590455-aa63a8350eea?w=512&q=80",
-      "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=512&q=80",
-      "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=512&q=80",
+      "https://picsum.photos/id/200/512/512",
+      "https://picsum.photos/id/213/512/512",
+      "https://picsum.photos/id/217/512/512",
+      "https://picsum.photos/id/237/512/512",
+      "https://picsum.photos/id/248/512/512",
     ],
   },
-] as const;
+];
 
 // ─── Canvas texture generator ───────────────────────────────────────────────
 function makeFaceTexture(
@@ -95,9 +119,9 @@ function makeFaceTexture(
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
   const face = FACES[faceIndex];
+  const fallbackColors = FALLBACK_GRADIENTS[faceIndex];
   const totalSlides = face.slides.length;
 
-  // ── 1. Draw image (cover) ────────────────────────────────────────────────
   if (img?.complete && img.naturalWidth > 0) {
     const iw = img.naturalWidth;
     const ih = img.naturalHeight;
@@ -108,15 +132,29 @@ function makeFaceTexture(
     const dy = (size - dh) / 2;
     ctx.drawImage(img, dx, dy, dw, dh);
   } else {
-    // fallback gradient when image hasn't loaded
+    // Vivid fallback gradient — never dark/black
     const grad = ctx.createLinearGradient(0, 0, size, size);
-    grad.addColorStop(0, `${face.accent}cc`);
-    grad.addColorStop(1, "#111111");
+    grad.addColorStop(0, fallbackColors[0]);
+    grad.addColorStop(0.5, fallbackColors[1]);
+    grad.addColorStop(1, fallbackColors[2]);
     ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+    // Add a circular highlight to make it look intentional
+    const highlight = ctx.createRadialGradient(
+      size * 0.35,
+      size * 0.3,
+      0,
+      size * 0.5,
+      size * 0.5,
+      size * 0.7,
+    );
+    highlight.addColorStop(0, "rgba(255,255,255,0.35)");
+    highlight.addColorStop(1, "rgba(0,0,0,0.2)");
+    ctx.fillStyle = highlight;
     ctx.fillRect(0, 0, size, size);
   }
 
-  // ── 2. Radial vignette — frames image inside the glass ───────────────────
   const radial = ctx.createRadialGradient(
     size / 2,
     size / 2,
@@ -130,12 +168,9 @@ function makeFaceTexture(
   ctx.fillStyle = radial;
   ctx.fillRect(0, 0, size, size);
 
-  // ── 3. Accent color tint (glass color) ─────────────────────────────────
-  ctx.fillStyle = `${face.accent}55`; // ~33% opacity tint
+  ctx.fillStyle = `${face.accent}55`;
   ctx.fillRect(0, 0, size, size);
 
-  // ── 4. Glass edge reflections ────────────────────────────────────────────
-  // Top edge highlight (strongest)
   const topEdge = ctx.createLinearGradient(0, 0, 0, 70);
   topEdge.addColorStop(0, "rgba(255,255,255,0.70)");
   topEdge.addColorStop(0.5, "rgba(255,255,255,0.25)");
@@ -143,35 +178,30 @@ function makeFaceTexture(
   ctx.fillStyle = topEdge;
   ctx.fillRect(0, 0, size, 70);
 
-  // Left edge highlight
   const leftEdge = ctx.createLinearGradient(0, 0, 45, 0);
   leftEdge.addColorStop(0, "rgba(255,255,255,0.45)");
   leftEdge.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = leftEdge;
   ctx.fillRect(0, 0, 45, size);
 
-  // Bottom edge subtle
   const bottomEdge = ctx.createLinearGradient(0, size, 0, size - 35);
   bottomEdge.addColorStop(0, "rgba(255,255,255,0.20)");
   bottomEdge.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = bottomEdge;
   ctx.fillRect(0, size - 35, size, 35);
 
-  // Right edge subtle
   const rightEdge = ctx.createLinearGradient(size, 0, size - 28, 0);
   rightEdge.addColorStop(0, "rgba(255,255,255,0.25)");
   rightEdge.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = rightEdge;
   ctx.fillRect(size - 28, 0, 28, size);
 
-  // Diagonal inner shimmer (top-left corner sparkle)
   const shimmer = ctx.createRadialGradient(80, 80, 0, 80, 80, 120);
   shimmer.addColorStop(0, "rgba(255,255,255,0.30)");
   shimmer.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = shimmer;
   ctx.fillRect(0, 0, 200, 200);
 
-  // ── 5. Dark vignette on all edges ────────────────────────────────────────
   const vignette = ctx.createRadialGradient(
     size / 2,
     size / 2,
@@ -185,20 +215,17 @@ function makeFaceTexture(
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, size, size);
 
-  // ── 6. Main discount label with glow ────────────────────────────────────
   const labelY = size * 0.64;
   const fontSize = face.label.length > 6 ? size * 0.18 : size * 0.22;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // Glow pass 1 — colored halo
   ctx.font = `900 ${fontSize}px 'Arial Black', Arial, sans-serif`;
   ctx.shadowColor = face.accent;
   ctx.shadowBlur = 28;
   ctx.fillStyle = face.accent;
   ctx.fillText(face.label, size / 2, labelY);
 
-  // Glow pass 2 — white on top
   ctx.shadowColor = "rgba(0,0,0,0.6)";
   ctx.shadowBlur = 14;
   ctx.shadowOffsetY = 3;
@@ -207,7 +234,6 @@ function makeFaceTexture(
   ctx.shadowOffsetY = 0;
   ctx.shadowBlur = 0;
 
-  // ── 7. Sub-label ─────────────────────────────────────────────────────────
   ctx.font = `600 ${size * 0.075}px Arial, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   ctx.shadowColor = "rgba(0,0,0,0.5)";
@@ -215,7 +241,6 @@ function makeFaceTexture(
   ctx.fillText(face.sub, size / 2, labelY + fontSize * 0.72);
   ctx.shadowBlur = 0;
 
-  // ── 8. V-7 SHOP branding (top-left) ─────────────────────────────────────
   ctx.textAlign = "left";
   ctx.font = `bold ${size * 0.055}px Arial, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.75)";
@@ -224,7 +249,6 @@ function makeFaceTexture(
   ctx.fillText("V-7 SHOP", 22, 36);
   ctx.shadowBlur = 0;
 
-  // ── 9. Slide indicator dots ──────────────────────────────────────────────
   const dotRadius = 6;
   const dotSpacing = 22;
   const dotsStartX = size / 2 - ((totalSlides - 1) * dotSpacing) / 2;
@@ -258,8 +282,20 @@ function preloadImages(): Promise<(HTMLImageElement | null)[][]> {
             new Promise<HTMLImageElement | null>((resolve) => {
               const img = new Image();
               img.crossOrigin = "anonymous";
-              img.onload = () => resolve(img);
-              img.onerror = () => resolve(null);
+              img.onload = () => {
+                if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                  resolve(img);
+                } else {
+                  console.warn(
+                    `[CrystalCube] Image loaded with zero dimensions: ${url}`,
+                  );
+                  resolve(null);
+                }
+              };
+              img.onerror = () => {
+                console.warn(`[CrystalCube] Failed to load image: ${url}`);
+                resolve(null);
+              };
               img.src = url;
             }),
         ),
@@ -268,27 +304,31 @@ function preloadImages(): Promise<(HTMLImageElement | null)[][]> {
   );
 }
 
+// ─── Pre-build all textures for every face × slide ────────────────────────────
+// Returns textures[faceIndex][slideIndex]
+function buildAllTextures(
+  images: (HTMLImageElement | null)[][],
+): THREE.CanvasTexture[][] {
+  return FACES.map((_, fi) =>
+    FACES[fi].slides.map((__, si) =>
+      makeFaceTexture(fi, si, images[fi]?.[si] ?? null),
+    ),
+  );
+}
+
 // ─── Inner 3D Scene ───────────────────────────────────────────────────────────
-function CrystalMesh({
-  slideIndices,
-}: {
-  slideIndices: number[];
-}) {
+function CrystalMesh({ slideIndices }: { slideIndices: number[] }) {
   const meshRef = useRef<Mesh>(null);
   const isDragging = useRef(false);
   const lastDrag = useRef(0);
+  const autoRotateSpeed = useRef(0);
   const { gl } = useThree();
 
-  // Loaded images: [faceIndex][slideIndex] = HTMLImageElement | null
-  const imagesRef = useRef<(HTMLImageElement | null)[][]>(
-    FACES.map((f) => f.slides.map(() => null)),
-  );
-  const imagesReady = useRef(false);
-
-  // Materials array ref so we can update textures imperatively
+  // Cached textures: [faceIndex][slideIndex]
+  const textureCache = useRef<THREE.CanvasTexture[][] | null>(null);
   const materialsRef = useRef<THREE.MeshPhysicalMaterial[]>([]);
 
-  // Build initial materials once
+  // Build initial materials (fallback gradient while images load)
   const materials = useMemo(() => {
     const mats = FACES.map((face, i) => {
       const tex = makeFaceTexture(i, 0, null);
@@ -316,19 +356,20 @@ function CrystalMesh({
     return mats;
   }, []);
 
-  // Preload images on mount (slideIndices are all 0 on first mount, use 0 directly)
+  // On mount: preload ALL images → build ALL textures at once → apply slide 0
   useEffect(() => {
     let cancelled = false;
     preloadImages().then((loaded) => {
       if (cancelled) return;
-      imagesRef.current = loaded;
-      imagesReady.current = true;
-      // Refresh all face textures with loaded images (initial slide = 0)
-      FACES.forEach((_, i) => {
-        const mat = materialsRef.current[i];
+      // Build full texture cache (all slides × all faces)
+      const cache = buildAllTextures(loaded);
+      textureCache.current = cache;
+      // Apply initial textures (slide 0 per face)
+      FACES.forEach((_, fi) => {
+        const mat = materialsRef.current[fi];
         if (!mat) return;
         const oldTex = mat.map;
-        mat.map = makeFaceTexture(i, 0, loaded[i]?.[0] ?? null);
+        mat.map = cache[fi][0];
         mat.needsUpdate = true;
         oldTex?.dispose();
       });
@@ -338,21 +379,20 @@ function CrystalMesh({
     };
   }, []);
 
-  // Update texture when slideIndex changes for a given face
+  // Swap texture from cache — no canvas regeneration on slide change
   useEffect(() => {
-    if (!imagesReady.current) return;
-    FACES.forEach((_, i) => {
-      const mat = materialsRef.current[i];
+    if (!textureCache.current) return;
+    FACES.forEach((_, fi) => {
+      const mat = materialsRef.current[fi];
       if (!mat) return;
-      const img = imagesRef.current[i]?.[slideIndices[i]] ?? null;
-      const oldTex = mat.map;
-      mat.map = makeFaceTexture(i, slideIndices[i], img);
-      mat.needsUpdate = true;
-      oldTex?.dispose();
+      const cached = textureCache.current![fi]?.[slideIndices[fi]];
+      if (cached && mat.map !== cached) {
+        mat.map = cached;
+        mat.needsUpdate = true;
+      }
     });
   }, [slideIndices]);
 
-  // Pointer / touch handlers
   const onPointerDown = useCallback(() => {
     isDragging.current = true;
   }, []);
@@ -376,14 +416,23 @@ function CrystalMesh({
     };
   }, [gl.domElement, onPointerDown, onPointerUp]);
 
-  // Auto-rotate after idle
   useFrame((_, delta) => {
     if (!meshRef.current) return;
     const elapsed = performance.now() - lastDrag.current;
-    if (!isDragging.current && elapsed > 2000) {
-      meshRef.current.rotation.y += delta * 0.5;
+    const shouldRotate = !isDragging.current && elapsed > 2000;
+
+    const targetSpeed = shouldRotate ? 0.3 : 0;
+    autoRotateSpeed.current +=
+      (targetSpeed - autoRotateSpeed.current) * Math.min(delta * 2.5, 1);
+
+    if (autoRotateSpeed.current > 0.001) {
+      meshRef.current.rotation.y += delta * autoRotateSpeed.current;
       meshRef.current.rotation.x +=
-        Math.sin(meshRef.current.rotation.y * 0.45) * delta * 0.1;
+        (Math.sin(meshRef.current.rotation.y * 0.4) *
+          0.15 *
+          delta *
+          autoRotateSpeed.current) /
+        0.3;
     }
   });
 
@@ -394,39 +443,17 @@ function CrystalMesh({
   );
 }
 
-// ─── Background plane (gives the glass something to refract against) ──────────
-function BackgroundPlane() {
-  return (
-    <mesh position={[0, 0, -4]} receiveShadow>
-      <planeGeometry args={[20, 12]} />
-      <meshBasicMaterial color="#050510" transparent opacity={0.92} />
-    </mesh>
-  );
-}
-
-// ─── Full scene ───────────────────────────────────────────────────────────────
+// ─── Full scene — 3 lights, no background plane ───────────────────────────────
 function Scene({ slideIndices }: { slideIndices: number[] }) {
-  // Slowly orbiting accent point light for moving specular highlights
-  const orbitLight = useRef<THREE.PointLight>(null);
-  useFrame(({ clock }) => {
-    if (!orbitLight.current) return;
-    const t = clock.getElapsedTime();
-    orbitLight.current.position.set(
-      Math.sin(t * 0.55) * 5,
-      Math.cos(t * 0.32) * 4,
-      Math.cos(t * 0.55) * 5,
-    );
-  });
-
   return (
     <>
-      {/* Environment map — massively improves glass realism */}
+      {/* Environment map — improves glass realism without extra lights */}
       <Environment preset="studio" />
 
-      {/* Ambient */}
-      <ambientLight intensity={0.5} />
+      {/* 1. Ambient — base illumination */}
+      <ambientLight intensity={0.6} />
 
-      {/* Key light — strong specular */}
+      {/* 2. Key light — primary specular */}
       <directionalLight
         position={[5, 8, 5]}
         intensity={2.8}
@@ -434,35 +461,20 @@ function Scene({ slideIndices }: { slideIndices: number[] }) {
         castShadow
       />
 
-      {/* Fill lights with colored tints */}
+      {/* 3. Colored fill — adds chromatic glass look */}
       <pointLight position={[-5, 4, -3]} intensity={2.0} color="#a78bfa" />
-      <pointLight position={[5, -4, 4]} intensity={1.5} color="#fb923c" />
-      <pointLight position={[0, 6, 0]} intensity={1.2} color="#38bdf8" />
-      <pointLight position={[-3, -5, 3]} intensity={1.0} color="#f472b6" />
 
-      {/* Rim light from behind */}
-      <spotLight
-        position={[-4, 2, -6]}
-        target-position={[0, 0, 0]}
-        intensity={3.5}
-        color="#ffffff"
-        angle={0.4}
-        penumbra={0.7}
-      />
-
-      {/* Orbiting specular highlight */}
-      <pointLight ref={orbitLight} intensity={1.8} color="#e8f4ff" />
-
-      <BackgroundPlane />
       <CrystalMesh slideIndices={slideIndices} />
 
       <OrbitControls
         enableZoom={false}
         enablePan={false}
         autoRotate={false}
-        dampingFactor={0.06}
+        dampingFactor={0.11}
         enableDamping={true}
-        rotateSpeed={0.8}
+        rotateSpeed={0.7}
+        minPolarAngle={0.3}
+        maxPolarAngle={Math.PI - 0.3}
       />
     </>
   );
@@ -480,7 +492,6 @@ function Fallback() {
 
 // ─── Public export ────────────────────────────────────────────────────────────
 export function CrystalCube() {
-  // Per-face slide indices, staggered cycling
   const [slideIndices, setSlideIndices] = useState<number[]>([
     0, 0, 0, 0, 0, 0,
   ]);
@@ -491,7 +502,6 @@ export function CrystalCube() {
 
     FACES.forEach((face, faceIdx) => {
       const totalSlides = face.slides.length;
-      // Stagger start by faceIndex * 700ms
       const delay = setTimeout(() => {
         const interval = setInterval(() => {
           setSlideIndices((prev) => {

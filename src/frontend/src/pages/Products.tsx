@@ -8,7 +8,7 @@ import type { Category, Product } from "@/types";
 import { useSearch } from "@tanstack/react-router";
 import { ChevronDown, Filter, SlidersHorizontal, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export const SORT_OPTIONS = [
   { value: "popular", label: "Most Popular" },
@@ -25,6 +25,8 @@ export const PRICE_RANGES = [
   { label: "₹5K–10K", min: 5000, max: 10000 },
   { label: "₹10K+", min: 10000, max: Number.POSITIVE_INFINITY },
 ];
+
+const PAGE_SIZE = 48;
 
 // ── Filter Panel Content (shared by drawer + sidebar) ──────────────────────
 interface FilterContentProps {
@@ -51,7 +53,7 @@ function FilterContent({
           {BRANDS.map((brand) => (
             <label
               key={brand}
-              className="flex items-center gap-3 cursor-pointer min-h-[44px] px-2 rounded-lg hover:bg-muted/60 transition-smooth"
+              className="flex items-center gap-3 cursor-pointer min-h-[44px] px-2 rounded-lg hover:bg-muted/60 transition-colors duration-200"
             >
               <input
                 type="radio"
@@ -81,7 +83,7 @@ function FilterContent({
           {PRICE_RANGES.map((range, i) => (
             <label
               key={range.label}
-              className="flex items-center gap-3 cursor-pointer min-h-[44px] px-2 rounded-lg hover:bg-muted/60 transition-smooth"
+              className="flex items-center gap-3 cursor-pointer min-h-[44px] px-2 rounded-lg hover:bg-muted/60 transition-colors duration-200"
             >
               <input
                 type="radio"
@@ -112,7 +114,17 @@ export function ProductsPage() {
   const [priceRange, setPriceRange] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [page, setPage] = useState(1);
   const searchQuery = (search.q || "").toLowerCase();
+
+  // Reset pagination when filters change
+  const prevFilterRef = useRef("");
+  const filterKey = `${selectedCategory}-${selectedBrand}-${priceRange}-${searchQuery}-${sort}`;
+  if (prevFilterRef.current !== filterKey) {
+    prevFilterRef.current = filterKey;
+    // Only reset if we already have a page set (avoid resetting on mount)
+    if (page !== 1) setPage(1);
+  }
 
   // Prevent body scroll when mobile drawer is open
   useEffect(() => {
@@ -167,6 +179,13 @@ export function ProductsPage() {
         return [...items].sort((a, b) => b.reviewCount - a.reviewCount);
     }
   }, [selectedCategory, selectedBrand, priceRange, searchQuery, sort]);
+
+  // Paginated slice — only render what's needed
+  const visibleProducts = useMemo(
+    () => filtered.slice(0, page * PAGE_SIZE),
+    [filtered, page],
+  );
+  const hasMore = visibleProducts.length < filtered.length;
 
   const hasFilters =
     searchQuery ||
@@ -225,7 +244,7 @@ export function ProductsPage() {
                 <button
                   type="button"
                   onClick={() => setDrawerOpen(false)}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-muted transition-smooth"
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-muted transition-colors duration-200"
                   aria-label="Close filters"
                   data-ocid="filter-drawer-close"
                 >
@@ -278,7 +297,7 @@ export function ProductsPage() {
           <button
             type="button"
             onClick={() => setSelectedCategory("all")}
-            className={`flex-shrink-0 min-h-[36px] px-4 py-1.5 rounded-full text-xs font-semibold border transition-smooth ${
+            className={`flex-shrink-0 min-h-[36px] px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors duration-200 ${
               selectedCategory === "all"
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-card text-foreground border-border hover:border-primary/50"
@@ -292,7 +311,7 @@ export function ProductsPage() {
               key={cat.id}
               type="button"
               onClick={() => setSelectedCategory(cat.id)}
-              className={`flex-shrink-0 min-h-[36px] flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold border transition-smooth ${
+              className={`flex-shrink-0 min-h-[36px] flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors duration-200 ${
                 selectedCategory === cat.id
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-card text-foreground border-border hover:border-primary/50"
@@ -359,7 +378,7 @@ export function ProductsPage() {
                 <button
                   type="button"
                   onClick={() => setDrawerOpen(true)}
-                  className="lg:hidden min-h-[44px] min-w-[44px] flex items-center gap-1.5 px-3 rounded-full text-xs font-semibold border border-border bg-card text-foreground hover:border-primary/50 transition-smooth"
+                  className="lg:hidden min-h-[44px] min-w-[44px] flex items-center gap-1.5 px-3 rounded-full text-xs font-semibold border border-border bg-card text-foreground hover:border-primary/50 transition-colors duration-200"
                   data-ocid="filter-open-btn"
                 >
                   <SlidersHorizontal className="h-4 w-4" />
@@ -405,7 +424,7 @@ export function ProductsPage() {
                 {selectedCategory !== "all" && (
                   <Badge
                     variant="secondary"
-                    className="text-xs cursor-pointer hover:bg-destructive/10 transition-smooth"
+                    className="text-xs cursor-pointer hover:bg-destructive/10 transition-colors duration-200"
                     onClick={() => setSelectedCategory("all")}
                     data-ocid="chip-category"
                   >
@@ -416,7 +435,7 @@ export function ProductsPage() {
                 {selectedBrand && (
                   <Badge
                     variant="secondary"
-                    className="text-xs cursor-pointer hover:bg-destructive/10 transition-smooth"
+                    className="text-xs cursor-pointer hover:bg-destructive/10 transition-colors duration-200"
                     onClick={() => setSelectedBrand(null)}
                     data-ocid="chip-brand"
                   >
@@ -427,7 +446,7 @@ export function ProductsPage() {
                 {priceRange !== null && (
                   <Badge
                     variant="secondary"
-                    className="text-xs cursor-pointer hover:bg-destructive/10 transition-smooth"
+                    className="text-xs cursor-pointer hover:bg-destructive/10 transition-colors duration-200"
                     onClick={() => setPriceRange(null)}
                     data-ocid="chip-price"
                   >
@@ -450,17 +469,15 @@ export function ProductsPage() {
             {selectedCategory === "all" && !selectedBrand && !searchQuery && (
               <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide -mx-1 px-1">
                 {BRANDS.map((brand) => (
-                  <motion.button
+                  <button
                     key={brand}
                     type="button"
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
                     onClick={() => setSelectedBrand(brand)}
-                    className="flex-shrink-0 min-h-[36px] flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-full text-xs font-semibold text-foreground hover:border-primary/60 hover:bg-primary/5 transition-smooth"
+                    className="flex-shrink-0 min-h-[36px] flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-full text-xs font-semibold text-foreground hover:border-primary/60 hover:bg-primary/5 transition-colors duration-200 active:scale-95"
                     data-ocid={`brand-chip-${brand.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}
                   >
                     {brand}
-                  </motion.button>
+                  </button>
                 ))}
               </div>
             )}
@@ -489,23 +506,38 @@ export function ProductsPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {filtered.map((product, i) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    index={i % 10}
-                    onViewDetails={setSelectedProduct}
-                  />
-                ))}
-              </div>
-            )}
+              <>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {visibleProducts.map((product, i) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      index={i % 10}
+                      onViewDetails={setSelectedProduct}
+                    />
+                  ))}
+                </div>
 
-            {/* Results footer */}
-            {filtered.length > 0 && (
-              <p className="text-center text-xs text-muted-foreground mt-8 pb-4">
-                Showing all {filtered.length.toLocaleString()} results
-              </p>
+                {/* Load More / footer */}
+                <div className="flex flex-col items-center gap-2 mt-8 pb-4">
+                  {hasMore ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-full px-8 font-semibold"
+                      onClick={() => setPage((p) => p + 1)}
+                      data-ocid="load-more-btn"
+                    >
+                      Load More ({filtered.length - visibleProducts.length}{" "}
+                      remaining)
+                    </Button>
+                  ) : (
+                    <p className="text-center text-xs text-muted-foreground">
+                      Showing all {filtered.length.toLocaleString()} results
+                    </p>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>

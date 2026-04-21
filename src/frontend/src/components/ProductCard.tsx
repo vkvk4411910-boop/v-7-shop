@@ -5,8 +5,7 @@ import { cn } from "@/lib/utils";
 import { useStore } from "@/store/useStore";
 import type { Product } from "@/types";
 import { Heart, ShoppingCart, Star } from "lucide-react";
-import { motion } from "motion/react";
-import { useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface ProductCardProps {
@@ -22,15 +21,33 @@ const BADGE_STYLES: Record<string, string> = {
   bestseller: "bg-primary text-primary-foreground",
 };
 
-export function ProductCard({
+export const ProductCard = memo(function ProductCard({
   product,
-  index = 0,
   onViewDetails,
 }: ProductCardProps) {
   const addToCart = useStore((s) => s.addToCart);
   const [wishlisted, setWishlisted] = useState(false);
   const [adding, setAdding] = useState(false);
   const [localSelected, setLocalSelected] = useState<Product | null>(null);
+  const [visible, setVisible] = useState(false);
+  const cardRef = useRef<HTMLButtonElement>(null);
+
+  // CSS-based fade-in via IntersectionObserver — no framer-motion overhead per card
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1, rootMargin: "60px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const discount = Math.round(
     ((product.originalPrice - product.price) / product.originalPrice) * 100,
@@ -62,13 +79,15 @@ export function ProductCard({
 
   return (
     <>
-      <motion.button
+      <button
+        ref={cardRef}
         type="button"
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.35, delay: index * 0.06 }}
-        className="group relative bg-card rounded-xl overflow-hidden card-elevated hover:card-elevated-hover transition-smooth cursor-pointer text-left w-full"
+        className={cn(
+          "group relative bg-card rounded-xl overflow-hidden card-elevated cursor-pointer text-left w-full",
+          "transition-[transform,box-shadow] duration-300 ease-out hover:card-elevated-hover hover:-translate-y-0.5",
+          "opacity-0 translate-y-3",
+          visible && "animate-card-in",
+        )}
         onClick={handleCardClick}
         aria-label={`View details for ${product.name}`}
         data-ocid={`product-card-${product.id}`}
@@ -78,7 +97,7 @@ export function ProductCard({
           type="button"
           onClick={handleWishlist}
           className={cn(
-            "absolute top-2 right-2 z-10 p-2 rounded-full transition-smooth min-w-[36px] min-h-[36px] flex items-center justify-center",
+            "absolute top-2 right-2 z-10 p-2 rounded-full transition-[opacity,background-color] duration-200 min-w-[36px] min-h-[36px] flex items-center justify-center",
             wishlisted
               ? "bg-destructive/10 text-destructive"
               : "bg-card/80 text-muted-foreground sm:opacity-0 sm:group-hover:opacity-100 opacity-100",
@@ -110,6 +129,7 @@ export function ProductCard({
             alt={product.name}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             loading="lazy"
+            decoding="async"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </div>
@@ -156,7 +176,7 @@ export function ProductCard({
             size="sm"
             onClick={handleAddToCart}
             className={cn(
-              "w-full mt-2 rounded-full font-semibold text-xs min-h-[44px] sm:min-h-[36px] transition-smooth",
+              "w-full mt-2 rounded-full font-semibold text-xs min-h-[44px] sm:min-h-[36px] transition-[transform,opacity] duration-200",
               adding && "scale-95",
             )}
             data-ocid="add-to-cart-btn"
@@ -165,7 +185,7 @@ export function ProductCard({
             {adding ? "Added!" : "Add to Cart"}
           </Button>
         </div>
-      </motion.button>
+      </button>
 
       {/* Local modal (when no parent handler) */}
       <ProductDetailModal
@@ -175,4 +195,4 @@ export function ProductCard({
       />
     </>
   );
-}
+});

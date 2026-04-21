@@ -1,10 +1,6 @@
 import { Layout } from "@/components/Layout";
-import { AdminPage } from "@/pages/Admin";
 import { CartPage } from "@/pages/Cart";
-import { ContactPage } from "@/pages/Contact";
 import { HomePage } from "@/pages/Home";
-import { LoginPage } from "@/pages/Login";
-import { OrdersPage } from "@/pages/Orders";
 import { ProductsPage } from "@/pages/Products";
 import { useStore } from "@/store/useStore";
 import {
@@ -14,6 +10,40 @@ import {
   createRouter,
   redirect,
 } from "@tanstack/react-router";
+import { Suspense, lazy } from "react";
+
+// Lazy-loaded pages (only load on first visit)
+const AdminPage = lazy(() =>
+  import("@/pages/Admin").then((m) => ({ default: m.AdminPage })),
+);
+const LoginPage = lazy(() =>
+  import("@/pages/Login").then((m) => ({ default: m.LoginPage })),
+);
+const OrdersPage = lazy(() =>
+  import("@/pages/Orders").then((m) => ({ default: m.OrdersPage })),
+);
+const ContactPage = lazy(() =>
+  import("@/pages/Contact").then((m) => ({ default: m.ContactPage })),
+);
+
+// Suspense fallback
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[40vh]">
+      <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+    </div>
+  );
+}
+
+function withSuspense(Component: React.ComponentType) {
+  return function SuspenseWrapper() {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Component />
+      </Suspense>
+    );
+  };
+}
 
 // Route tree
 const rootRoute = createRootRoute({ component: Layout });
@@ -56,13 +86,13 @@ const ordersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/orders",
   beforeLoad: () => requireAuth("/orders"),
-  component: OrdersPage,
+  component: withSuspense(OrdersPage),
 });
 
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin",
-  component: AdminPage,
+  component: withSuspense(AdminPage),
 });
 
 const loginRoute = createRoute({
@@ -71,13 +101,13 @@ const loginRoute = createRoute({
   validateSearch: (search: Record<string, unknown>) => ({
     returnUrl: (search.returnUrl as string) ?? "/",
   }),
-  component: LoginPage,
+  component: withSuspense(LoginPage),
 });
 
 const contactRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/contact",
-  component: ContactPage,
+  component: withSuspense(ContactPage),
 });
 
 const routeTree = rootRoute.addChildren([

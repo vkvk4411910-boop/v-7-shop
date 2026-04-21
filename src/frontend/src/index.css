@@ -191,7 +191,10 @@
 
 @layer utilities {
   .transition-smooth {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s
+      cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s
+      cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s
+      cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .glow-card {
@@ -208,6 +211,7 @@
 
   .card-elevated-hover {
     box-shadow: 0 12px 32px oklch(0 0 0 / 0.15);
+    will-change: transform;
   }
 
   .badge-accent {
@@ -248,8 +252,92 @@
     animation: slide-in-right 0.28s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
 
+  @keyframes card-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-card-in {
+    animation: card-in 0.32s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    will-change: transform, opacity;
+  }
+
+  /* CSS stagger for category grid — no per-item JS needed */
+  .stagger-children .stagger-item {
+    opacity: 0;
+    animation: card-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  .stagger-children .stagger-item:nth-child(1) {
+    animation-delay: 0ms;
+  }
+  .stagger-children .stagger-item:nth-child(2) {
+    animation-delay: 40ms;
+  }
+  .stagger-children .stagger-item:nth-child(3) {
+    animation-delay: 80ms;
+  }
+  .stagger-children .stagger-item:nth-child(4) {
+    animation-delay: 120ms;
+  }
+  .stagger-children .stagger-item:nth-child(5) {
+    animation-delay: 160ms;
+  }
+  .stagger-children .stagger-item:nth-child(6) {
+    animation-delay: 200ms;
+  }
+  .stagger-children .stagger-item:nth-child(7) {
+    animation-delay: 240ms;
+  }
+  .stagger-children .stagger-item:nth-child(8) {
+    animation-delay: 280ms;
+  }
+  .stagger-children .stagger-item:nth-child(9) {
+    animation-delay: 320ms;
+  }
+  .stagger-children .stagger-item:nth-child(10) {
+    animation-delay: 360ms;
+  }
+  .stagger-children .stagger-item:nth-child(11) {
+    animation-delay: 400ms;
+  }
+  .stagger-children .stagger-item:nth-child(12) {
+    animation-delay: 440ms;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .animate-slide-in-right {
+    .animate-slide-in-right,
+    .animate-card-in,
+    .stagger-children .stagger-item {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Offers marquee — infinite left-to-right scroll */
+  @keyframes marquee-ltr {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .marquee-track {
+    width: max-content;
+    animation: marquee-ltr 22s linear infinite;
+    will-change: transform;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track {
       animation: none;
     }
   }

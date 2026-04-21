@@ -5,6 +5,69 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, Zap } from "lucide-react";
 import { motion } from "motion/react";
 
+const OFFER_CARDS = [
+  {
+    label: "UP TO 70% OFF",
+    category: "Men's Fashion",
+    bg: "linear-gradient(135deg, #7C3AED, #a855f7)",
+    img: "https://images.unsplash.com/photo-1617137968427-85924c800a22?w=96&h=96&fit=crop&q=80",
+  },
+  {
+    label: "FLAT 50% OFF",
+    category: "Women's Wear",
+    bg: "linear-gradient(135deg, #db2777, #f472b6)",
+    img: "https://images.unsplash.com/photo-1492707892479-7bc8d5a4ee93?w=96&h=96&fit=crop&q=80",
+  },
+  {
+    label: "NEW SEASON",
+    category: "Sneakers",
+    bg: "linear-gradient(135deg, #0891b2, #22d3ee)",
+    img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=96&h=96&fit=crop&q=80",
+  },
+  {
+    label: "BUY 2 GET 1",
+    category: "Accessories",
+    bg: "linear-gradient(135deg, #ea580c, #fb923c)",
+    img: "https://images.unsplash.com/photo-1611085583191-a3b181a88401?w=96&h=96&fit=crop&q=80",
+  },
+  {
+    label: "60% OFF",
+    category: "Beauty & Skin",
+    bg: "linear-gradient(135deg, #16a34a, #4ade80)",
+    img: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=96&h=96&fit=crop&q=80",
+  },
+  {
+    label: "FLASH SALE",
+    category: "Sports Gear",
+    bg: "linear-gradient(135deg, #d97706, #fbbf24)",
+    img: "https://images.unsplash.com/photo-1461897104016-0b3b00cc81ee?w=96&h=96&fit=crop&q=80",
+  },
+  {
+    label: "40% OFF",
+    category: "Watches",
+    bg: "linear-gradient(135deg, #1d4ed8, #60a5fa)",
+    img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=96&h=96&fit=crop&q=80",
+  },
+  {
+    label: "MEGA DEALS",
+    category: "Ethnic Wear",
+    bg: "linear-gradient(135deg, #be185d, #e879a0)",
+    img: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=96&h=96&fit=crop&q=80",
+  },
+  {
+    label: "30% OFF",
+    category: "Sunglasses",
+    bg: "linear-gradient(135deg, #0f766e, #2dd4bf)",
+    img: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=96&h=96&fit=crop&q=80",
+  },
+  {
+    label: "BIG SALE",
+    category: "Formal Shoes",
+    bg: "linear-gradient(135deg, #6d28d9, #8b5cf6)",
+    img: "https://images.unsplash.com/photo-1449505278894-297fdb3edbc1?w=96&h=96&fit=crop&q=80",
+  },
+];
+
 export function HeroBanner() {
   return (
     <section
@@ -64,6 +127,42 @@ export function HeroBanner() {
           data-ocid="hero-crystal-cube"
         >
           <CrystalCube />
+        </motion.div>
+
+        {/* Style Offers Marquee — scrolls left to right infinitely */}
+        <motion.div
+          className="w-full max-w-xs sm:max-w-sm md:max-w-md overflow-hidden rounded-xl mt-2"
+          style={{ height: "88px" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.38 }}
+          data-ocid="hero-offers-marquee"
+        >
+          <div className="marquee-track flex items-center gap-3 h-full">
+            {OFFER_CARDS.concat(OFFER_CARDS).map((card, i) => (
+              <div
+                key={`${card.category}-${i < OFFER_CARDS.length ? "a" : "b"}`}
+                className="flex-shrink-0 flex items-center gap-2.5 rounded-xl px-3 py-2 h-[72px] w-[150px]"
+                style={{ background: card.bg }}
+              >
+                <img
+                  src={card.img}
+                  alt={card.category}
+                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                  loading="lazy"
+                  crossOrigin="anonymous"
+                />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-white font-extrabold text-xs leading-tight truncate">
+                    {card.label}
+                  </span>
+                  <span className="text-white/80 text-[10px] font-medium leading-tight truncate mt-0.5">
+                    {card.category}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </motion.div>
 
         <motion.div

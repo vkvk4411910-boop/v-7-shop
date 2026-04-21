@@ -197,7 +197,14 @@ export function HomePage() {
         data-ocid="categories-section"
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
+          {/* Section header — animated once */}
+          <motion.div
+            className="flex items-center justify-between mb-3 sm:mb-4"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.35 }}
+          >
             <h2 className="text-base sm:text-lg font-display font-bold text-foreground">
               Shop by Category
             </h2>
@@ -210,19 +217,15 @@ export function HomePage() {
                 View All <ChevronRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </Link>
-          </div>
-          {/* 2 cols on 320px, 3 at sm, 4 at md, 6 at lg */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
-            {CATEGORIES.map((cat, i) => (
-              <motion.button
+          </motion.div>
+          {/* Grid — CSS stagger via animation-delay, no per-item JS */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 stagger-children">
+            {CATEGORIES.map((cat) => (
+              <button
                 key={cat.id}
                 type="button"
                 onClick={() => handleCategory(cat.id)}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.3, delay: i * 0.06 }}
-                className="group flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-3 rounded-2xl bg-card hover:bg-primary/5 border border-border hover:border-primary/30 transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[72px]"
+                className="group flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-3 rounded-2xl bg-card hover:bg-primary/5 border border-border hover:border-primary/30 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[72px] stagger-item"
                 data-ocid={`category-${cat.id}`}
               >
                 <span className="text-xl sm:text-2xl group-hover:scale-110 transition-transform duration-200">
@@ -231,7 +234,7 @@ export function HomePage() {
                 <span className="text-xs font-semibold text-foreground text-center leading-tight">
                   {cat.label}
                 </span>
-              </motion.button>
+              </button>
             ))}
           </div>
         </div>
@@ -243,7 +246,6 @@ export function HomePage() {
         data-ocid="flash-sale-banner"
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Stacked on mobile, row on sm+ */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-3">
               <span className="text-xl sm:text-2xl">⚡</span>
@@ -282,7 +284,7 @@ export function HomePage() {
         data-ocid="new-arrivals-section"
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Heading row */}
+          {/* Section header — single animation */}
           <motion.div
             className="flex items-center justify-between mb-5 sm:mb-6"
             initial={{ opacity: 0, y: 16 }}
@@ -316,13 +318,7 @@ export function HomePage() {
           </motion.div>
 
           {/* Badge strip */}
-          <motion.div
-            className="flex items-center gap-2 mb-4 sm:mb-5 overflow-x-auto pb-1 scrollbar-hide"
-            initial={{ opacity: 0, x: -12 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.35, delay: 0.1 }}
-          >
+          <div className="flex items-center gap-2 mb-4 sm:mb-5 overflow-x-auto pb-1 scrollbar-hide">
             {["All", "Shoes", "Men", "Women", "Beauty", "Sports"].map(
               (label) => (
                 <Link
@@ -333,53 +329,46 @@ export function HomePage() {
                     category:
                       label === "All" ? "" : (label.toLowerCase() as Category),
                   }}
-                  className="shrink-0 px-3.5 py-1.5 rounded-full border border-border bg-card text-xs font-semibold text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-smooth whitespace-nowrap"
+                  className="shrink-0 px-3.5 py-1.5 rounded-full border border-border bg-card text-xs font-semibold text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors duration-200 whitespace-nowrap"
                   data-ocid={`new-arrivals-filter-${label.toLowerCase()}`}
                 >
                   {label}
                 </Link>
               ),
             )}
-          </motion.div>
-
-          {/* Product grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-            {NEW_ARRIVALS.map((product, i) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.35, delay: i * 0.05 }}
-              >
-                <ProductCard
-                  product={product}
-                  index={i}
-                  onViewDetails={setSelectedProduct}
-                />
-              </motion.div>
-            ))}
           </div>
 
-          {/* Bottom CTA strip */}
+          {/* Product grid — no per-card animations, container fade only */}
           <motion.div
-            className="mt-6 sm:mt-8 flex justify-center"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.4, delay: 0.2 }}
+            transition={{ duration: 0.4 }}
           >
+            {NEW_ARRIVALS.map((product, i) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                index={i}
+                onViewDetails={setSelectedProduct}
+              />
+            ))}
+          </motion.div>
+
+          {/* Bottom CTA strip */}
+          <div className="mt-6 sm:mt-8 flex justify-center">
             <Link to="/products" search={{ q: "new", category: "" }}>
               <Button
                 size="lg"
                 variant="outline"
-                className="rounded-full px-8 font-bold border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-smooth"
+                className="rounded-full px-8 font-bold border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-colors duration-200"
                 data-ocid="new-arrivals-explore-all"
               >
                 Explore All New Arrivals <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -389,7 +378,14 @@ export function HomePage() {
         data-ocid="featured-products"
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-4 sm:mb-5">
+          {/* Section header — single animation */}
+          <motion.div
+            className="flex items-center justify-between mb-4 sm:mb-5"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.35 }}
+          >
             <div>
               <h2 className="text-lg sm:text-xl font-display font-extrabold text-foreground">
                 Trending Now
@@ -408,8 +404,8 @@ export function HomePage() {
                 View All <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </Link>
-          </div>
-          {/* 2 cols mobile (tight gap), 3 at md, 4 at lg */}
+          </motion.div>
+          {/* Grid — no per-card motion wrappers */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
             {SAMPLE_PRODUCTS.map((product, i) => (
               <ProductCard
@@ -429,7 +425,13 @@ export function HomePage() {
         data-ocid="brands-section"
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-4 sm:mb-5">
+          <motion.div
+            className="flex items-center justify-between mb-4 sm:mb-5"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.35 }}
+          >
             <h2 className="text-lg sm:text-xl font-display font-extrabold text-foreground">
               Top Brands
             </h2>
@@ -442,34 +444,27 @@ export function HomePage() {
                 All Brands <ChevronRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </Link>
-          </div>
-          {/* 3 cols mobile, 6 at sm */}
+          </motion.div>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
-            {BRANDS.map((brand, i) => (
+            {BRANDS.map((brand) => (
               <Link
                 key={brand.name}
                 to="/products"
                 search={{ q: brand.name, category: "" }}
                 className="group flex flex-col items-center gap-1.5 sm:gap-2"
               >
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.3, delay: i * 0.08 }}
-                  className="w-full"
-                >
-                  <div className="w-full aspect-square rounded-xl overflow-hidden bg-muted/30 border border-border group-hover:border-primary/40 group-hover:shadow-glow-primary transition-smooth">
-                    <img
-                      src={brand.logo}
-                      alt={brand.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                  <span className="text-xs font-semibold text-foreground block text-center mt-1.5">
-                    {brand.name}
-                  </span>
-                </motion.div>
+                <div className="w-full aspect-square rounded-xl overflow-hidden bg-muted/30 border border-border group-hover:border-primary/40 transition-[border-color,box-shadow] duration-300">
+                  <img
+                    src={brand.logo}
+                    alt={brand.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+                <span className="text-xs font-semibold text-foreground block text-center mt-1.5">
+                  {brand.name}
+                </span>
               </Link>
             ))}
           </div>
